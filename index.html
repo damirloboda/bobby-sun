@@ -1,0 +1,1202 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>БОББИ ИЩЕТ СОЛНЦЕ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;700&display=swap&subset=cyrillic,latin">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0b1029;overflow:hidden;
+  font-family:'Chalkboard SE','Comic Sans MS','Comfortaa','Trebuchet MS',system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:none}
+#app{height:100%;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;overflow:hidden;border-radius:16px;box-shadow:0 20px 70px rgba(0,0,0,.6)}
+canvas{display:block;width:100%;height:100%;cursor:none}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.7em;
+  background:linear-gradient(165deg,rgba(11,16,41,.82),rgba(38,20,66,.88));z-index:5;text-align:center;color:#fff}
+.hidden{display:none!important}
+h1{font-size:4.6em;letter-spacing:.05em;color:#ffd166;line-height:1;
+   text-shadow:0 .05em 0 #c9873c,0 .1em 0 #a06a2c,0 .16em .3em rgba(0,0,0,.55)}
+h2{font-size:2.3em;color:#ffd166;text-shadow:0 .05em 0 #c9873c}
+.sub{font-size:1.05em;line-height:1.55;color:#d6dcff}
+.tiny{font-size:.8em;color:#8f9ac9}
+button{font:inherit;font-size:1.05em;padding:.5em 1.7em;border:none;border-radius:999px;background:#ffd166;color:#3a2a08;
+  cursor:pointer;box-shadow:0 .25em 0 #c9973c;transition:transform .07s,box-shadow .07s}
+button:hover{transform:translateY(-2px);box-shadow:0 .35em 0 #c9973c}
+button:active{transform:translateY(2px);box-shadow:0 .08em 0 #c9973c}
+button.big{font-size:1.7em;padding:.45em 2.3em;background:#7ee081;color:#123d18;box-shadow:0 .25em 0 #46a04c}
+button.big:hover{box-shadow:0 .35em 0 #46a04c}
+button.ghost{background:transparent;color:#8f9ac9;box-shadow:none;font-size:.8em}
+button.ghost:hover{color:#fff;transform:none;box-shadow:none}
+.row{display:flex;gap:.6em;flex-wrap:wrap;justify-content:center}
+#grid{display:grid;grid-template-columns:repeat(10,1fr);gap:.35em;width:74%;max-height:56%;overflow-y:auto;padding:.6em;
+  background:rgba(0,0,0,.22);border-radius:1em}
+#grid button{padding:.45em 0;font-size:.85em;border-radius:.55em;box-shadow:0 .12em 0 #c9973c}
+#grid button.done{background:#7ee081;box-shadow:0 .12em 0 #46a04c}
+#grid button.locked{background:#333b63;color:#6b74a5;box-shadow:0 .12em 0 #222846;cursor:not-allowed}
+#grid button.locked:hover{transform:none}
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:.55em .8em;z-index:4;
+  color:#fff;font-size:1.05em;pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,.5)}
+#hud>div{display:flex;gap:.7em;align-items:center;pointer-events:auto;background:rgba(11,16,41,.42);
+  padding:.22em .8em;border-radius:999px;backdrop-filter:blur(4px)}
+#hud button{padding:.1em .55em;font-size:.95em;box-shadow:0 .1em 0 #c9973c;line-height:1.3}
+#hint{position:absolute;left:50%;top:3.5em;transform:translateX(-50%);z-index:4;background:rgba(11,16,41,.75);
+  color:#ffe9a8;padding:.4em 1.1em;border-radius:999px;font-size:1em;pointer-events:none;
+  transition:opacity .4s;backdrop-filter:blur(4px);max-width:88%}
+.helpbox{text-align:left;font-size:1em;line-height:1.85;background:rgba(0,0,0,.25);padding:1.1em 1.6em;border-radius:1em}
+.helpbox b{color:#ffd166}
+.stats{display:flex;gap:1.6em;font-size:1.15em;color:#d6dcff}
+.stats b{color:#fff;display:block;font-size:1.5em}
+#btnPush{position:absolute;right:1em;bottom:1em;z-index:4;width:5.6em;height:5.6em;border-radius:50%;font-size:1.05em;display:none;background:#ff9db0;color:#4a0d1c;box-shadow:0 .3em 0 #c05f72}
+.touch #btnPush{display:block}
+#rotate{position:fixed;inset:0;z-index:99;background:#0b1029;color:#ffd166;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:.8em;text-align:center;font-size:20px}
+#rotate .ic{font-size:3.4em;animation:rot 2.6s ease-in-out infinite}
+#rotate span{font-size:.72em;color:#8f9ac9}
+@keyframes rot{0%,55%,100%{transform:rotate(0)}28%{transform:rotate(90deg)}}
+body.portrait #rotate{display:flex}
+html,body{overscroll-behavior:none}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game" width="960" height="540"></canvas>
+
+  <div id="hud" class="hidden">
+    <div><button id="btnMenu">☰</button><span id="hudLevel">Уровень 1</span></div>
+    <div><span id="hudDeaths">💀 0</span><span id="hudTime">0:00</span><button id="btnSound">🔊</button><button id="btnRestart">⟳</button></div>
+  </div>
+  <div id="hint" class="hidden"></div>
+  <button id="btnPush">ТОЛЧОК</button>
+
+  <div id="menu" class="screen">
+    <h1>БОББИ<br><span style="font-size:.52em">ищет солнце</span></h1>
+    <p class="sub">Бобби идёт туда, где твоя мышь.<br>Бобби не смотрит под ноги.<br><span class="tiny">Ты его бог. Ты его единственная надежда.</span></p>
+    <button class="big" id="btnPlay">ИГРАТЬ</button>
+    <div class="row"><button id="btnLevels">УРОВНИ</button><button id="btnHelp">КАК ИГРАТЬ</button></div>
+    <button id="btnAuth">Войти через Google</button>
+    <button id="btnReset" class="ghost">сбросить прогресс</button>
+    <div id="cloudTag" class="tiny" style="opacity:.6">💾 прогресс сохраняется в этом браузере</div>
+  </div>
+
+  <div id="levels" class="screen hidden">
+    <h2>100 УРОВНЕЙ</h2>
+    <div id="grid"></div>
+    <button id="btnBack1">НАЗАД</button>
+  </div>
+
+  <div id="help" class="screen hidden">
+    <h2>КАК ИГРАТЬ</h2>
+    <div class="helpbox">
+      <b>Мышь</b> — Бобби всегда идёт к курсору.<br>
+      <b>Курсор выше</b> — Бобби прыгает. Чем выше, тем сильнее.<br>
+      <b>ЛКМ</b> — божественный толчок: отбрасывает Бобби <i>от</i> курсора.<br>
+      &nbsp;&nbsp;&nbsp;Кликни <b>под ним</b> — подбросишь вверх.<br>
+      <b>R</b> — заново, <b>Esc</b> — меню, <b>S</b> — звук.<br>
+      <span class="tiny">Бобби слеп к опасностям, залипает на бабочках,<br>устаёт от долгой ходьбы и панически боится пауков.</span>
+    </div>
+    <button id="btnBack2">ПОНЯЛ</button>
+  </div>
+
+  <div id="win" class="screen hidden">
+    <h2 id="winTitle">ГОТОВО!</h2>
+    <p class="sub" id="winMsg">Бобби выжил. Сам он не понял как.</p>
+    <div class="stats"><div>время<b id="winTime">0:00</b></div><div>смертей<b id="winDeaths">0</b></div></div>
+    <button class="big" id="btnNext">ДАЛЬШЕ →</button>
+    <div class="row"><button id="btnAgain">ЗАНОВО</button><button id="btnBack3">УРОВНИ</button></div>
+  </div>
+</div></div>
+<div id="rotate"><div class="ic">📱</div><b>Поверни телефон</b><span>игра работает горизонтально</span></div>
+<script>
+'use strict';
+const W=960,H=540;
+const cv=document.getElementById('game'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage');
+const $=id=>document.getElementById(id);
+
+// теневой холст для темноты
+const dcv=document.createElement('canvas'); dcv.width=W; dcv.height=H;
+const dtx=dcv.getContext('2d');
+
+let scale=1;
+function fit(){
+  scale=Math.min(window.innerWidth/W, window.innerHeight/H);
+  stage.style.width=(W*scale)+'px';
+  stage.style.height=(H*scale)+'px';
+  stage.style.fontSize=(16*scale)+'px';
+  document.body.classList.toggle('portrait',
+    matchMedia('(pointer:coarse)').matches && window.innerHeight>window.innerWidth);
+}
+addEventListener('resize',fit); fit();
+if(matchMedia('(pointer:coarse)').matches) document.body.classList.add('touch');
+
+// ───────── утилиты ─────────
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const dist=(x1,y1,x2,y2)=>Math.hypot(x2-x1,y2-y1);
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function rr(c,x,y,w,h,r){r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);c.beginPath();c.moveTo(x+r,y);
+  c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+const aabb=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+
+// ───────── звук ─────────
+let AC=null, SND=true;
+function actx(){ if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}} 
+  if(AC&&AC.state==='suspended')AC.resume(); return AC; }
+function tone(f1,f2,dur,type,vol,delay){
+  if(!SND)return; const a=actx(); if(!a)return;
+  const t0=a.currentTime+(delay||0);
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f1,t0);
+  if(f2) o.frequency.exponentialRampToValueAtTime(Math.max(1,f2),t0+dur);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(vol==null?.1:vol,t0+.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0+dur+.03);
+}
+function noiseHit(dur,vol){
+  if(!SND)return; const a=actx(); if(!a)return;
+  const n=a.sampleRate*dur, buf=a.createBuffer(1,n,a.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+  const s=a.createBufferSource(); s.buffer=buf;
+  const g=a.createGain(); g.gain.value=vol||.15;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=900;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+const sfx={
+  jump:()=>tone(320,620,.16,'square',.06),
+  land:()=>tone(180,90,.09,'sine',.07),
+  push:()=>{tone(90,420,.22,'sawtooth',.09); noiseHit(.16,.09);},
+  die:()=>{tone(420,60,.4,'square',.09); noiseHit(.35,.16);},
+  ding:()=>{tone(1180,1560,.13,'triangle',.05);},
+  scare:()=>tone(220,110,.25,'sawtooth',.06),
+  yawn:()=>tone(260,180,.35,'sine',.05),
+  win:()=>{[523,659,784,1046].forEach((f,i)=>tone(f,f,.18,'triangle',.08,i*.09));},
+  step:()=>tone(140,110,.04,'sine',.025)
+};
+
+// ───────── сохранение ─────────
+const SKEY='tupitsa_save_v1';
+let save={unlocked:1,done:{},best:{},sound:true};
+try{const s=JSON.parse(localStorage.getItem(SKEY)); if(s)save=Object.assign(save,s);}catch(e){}
+SND=save.sound!==false;
+function persist(){ try{localStorage.setItem(SKEY,JSON.stringify(save));}catch(e){} }
+
+// ───────── ввод ─────────
+const mouse={sx:W/2,sy:H*0.5,x:W/2,y:H*0.5,inside:true};
+const isTouch=matchMedia('(pointer:coarse)').matches;
+function setPointer(cx,cy,touch){
+  const r=cv.getBoundingClientRect();
+  mouse.sx=clamp((cx-r.left)*(W/r.width),0,W);
+  mouse.sy=clamp((cy-r.top)*(H/r.height)-(touch?70:0),0,H);
+}
+addEventListener('mousemove',e=>setPointer(e.clientX,e.clientY));
+addEventListener('mousedown',e=>{ if(e.button===0){ setPointer(e.clientX,e.clientY);
+  if(e.target===cv){ doPush(); e.preventDefault(); } } });
+addEventListener('touchstart',e=>{ const t=e.touches[0]; if(!t)return; setPointer(t.clientX,t.clientY,1);
+  if(e.target===cv) e.preventDefault(); },{passive:false});
+addEventListener('touchmove',e=>{ const t=e.touches[0]; if(!t)return; setPointer(t.clientX,t.clientY,1);
+  if(e.target===cv) e.preventDefault(); },{passive:false});
+$('btnPush').addEventListener('click',e=>{e.preventDefault();doPush();});
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='r'||k==='к'){ if(state==='play') startLevel(cur); }
+  if(k==='escape'){ if(state==='play'||state==='win'||state==='ending') showMenu(); }
+  if(k==='s'||k==='ы'){ toggleSound(); }
+  if(k===' '){ e.preventDefault(); doPush(); }
+});
+
+// ───────── уровни ─────────
+let PID=0;
+function P(x,y,w,type,opt){
+  const p={id:++PID,x,y,w,h:24,type:type||'solid',ox:x,oy:y,dx:0,dy:0,touched:false,timer:0,gone:false,vy:0};
+  if(opt)Object.assign(p,opt); return p;
+}
+const SP=(x,y,w,down)=>({type:'spike',x,y:down?y:y-13,w,h:13,down:!!down});
+const SAW=(ax,ay,bx,by,r,speed,phase)=>({type:'saw',ax,ay,bx,by,r:r||20,speed:speed||1,phase:phase||0});
+const LAVA=(x,y,w,h)=>({type:'lava',x,y,w,h:h||12});
+
+const INTRO={14:'Платформы теперь ездят.',22:'Лава светится сама. Это единственная хорошая новость.',
+  30:'Треснувшие плиты падают через миг после шага.',38:'Паук. Бобби паникует и убегает от него.',
+  48:'Шипы бывают и на потолке. Не подбрасывай вслепую.'};
+
+function tutorial(n){
+  const base={n,butterflies:false,spiders:[],lavaFloor:false,light:255};
+  if(n===1) return Object.assign(base,{width:960,hint:'Веди мышь — свет ведёт Бобби. Дойди до двери.',
+    start:{x:90,y:400},exit:{x:850,y:388,w:44,h:56},
+    plats:[P(0,444,960)],haz:[]});
+  if(n===2) return Object.assign(base,{width:960,hint:'Подними курсор выше — и Бобби прыгнет. Чем выше, тем сильнее.',
+    start:{x:80,y:400},exit:{x:860,y:388,w:44,h:56},
+    plats:[P(0,444,420),P(496,444,464)],haz:[]});
+  if(n===3) return Object.assign(base,{width:960,hint:'Он НЕ видит шипы. Посвети вперёд и перепрыгни.',
+    start:{x:70,y:400},exit:{x:870,y:388,w:44,h:56},
+    plats:[P(0,444,960)],haz:[SP(400,444,80)]});
+  if(n===4) return Object.assign(base,{width:960,hint:'Высоко. ЛКМ — толчок: кликни ПОД Бобби, чтобы подбросить.',
+    start:{x:70,y:420},exit:{x:840,y:242,w:44,h:56},
+    plats:[P(0,464,430),P(500,298,460)],haz:[]});
+  if(n===5) return Object.assign(base,{width:1200,hint:'Пила светится сама. Она его не пожалеет.',
+    start:{x:70,y:400},exit:{x:1100,y:388,w:44,h:56},
+    plats:[P(0,444,430),P(560,444,640)],
+    haz:[SAW(495,330,495,470,22,1.5,0)]});
+  if(n===6) return Object.assign(base,{width:1300,butterflies:true,
+    hint:'Бабочка светится и Бобби на неё залипает. Терпи.',
+    start:{x:70,y:400},exit:{x:1200,y:388,w:44,h:56},
+    plats:[P(0,444,520),P(640,444,300),P(1060,444,240)],
+    haz:[SP(700,444,70)]});
+  return null;
+}
+
+function buildLevel(n){
+  const t=tutorial(n); if(t) return t;
+  const rnd=mulberry32(90210+n*7919);
+  const d=clamp((n-6)/94,0,1);
+  const F={saw:true,bfly:n>=10,move:n>=14,lava:n>=22,crumble:n>=30,spider:n>=38,ceil:n>=48};
+  const L={n,width:0,light:clamp(244-(n-6)*0.72,170,244),hint:INTRO[n]||null,
+    plats:[],haz:[],spiders:[],butterflies:F.bfly&&(n===10||rnd()<0.45),lavaFloor:false,start:null,exit:null};
+  if(F.lava&&rnd()<0.3) L.lavaFloor=true;
+  const segs=clamp(4+Math.round((n-6)/6.2),4,17);
+  let x=30,y=430,spiderCount=0,forced={move:n===14,lava:n===22,crumble:n===30,spider:n===38,ceil:n===48};
+
+  for(let i=0;i<segs;i++){
+    const last=i===segs-1, first=i===0;
+    let w=last?170:(first?200:110+Math.floor(rnd()*150));
+    let type='solid';
+    if(!first&&!last){
+      if(F.move&&(forced.move||rnd()<0.16)){type='move';forced.move=false;}
+      else if(F.crumble&&(forced.crumble||rnd()<0.15)){type='crumble';forced.crumble=false;w=Math.min(w,120);}
+    }
+    const opt={};
+    if(type==='move'){
+      opt.axis=rnd()<0.55?'x':'y';
+      opt.range=(opt.axis==='x'?55:45)+rnd()*(60+40*d);
+      opt.speed=0.55+rnd()*(0.5+0.5*d);
+      opt.phase=rnd()*Math.PI*2;
+      w=Math.max(90,Math.min(w,130));
+    }
+    const p=P(x,y,w,type,opt);
+    L.plats.push(p);
+    if(first) L.start={x:x+40,y:y-40};
+    if(last) L.exit={x:x+w/2-22,y:y-56,w:44,h:56};
+
+    if(!first&&!last&&type==='solid'&&w>=140){
+      const r=rnd();
+      if(F.lava&&(forced.lava||r<0.08+0.10*d)){
+        forced.lava=false;
+        const lw=34+Math.floor(rnd()*Math.min(70,w-96));
+        L.haz.push(LAVA(x+46+rnd()*(w-92-lw),y-11,lw,11));
+      } else if(r<0.20+0.28*d){
+        const sw=28+Math.floor(rnd()*Math.min(66,w-92));
+        L.haz.push(SP(x+44+rnd()*(w-88-sw),y,sw));
+      }
+      if(F.ceil&&(forced.ceil||rnd()<0.10+0.18*d)&&w>=170){
+        forced.ceil=false;
+        const cw=50+Math.floor(rnd()*50);
+        const cx=x+50+rnd()*(w-100-cw);
+        L.plats.push(P(cx,y-176,cw,'solid',{ceil:true}));
+        L.haz.push(SP(cx+4,y-152,cw-8,true));
+      }
+      if(F.spider&&spiderCount<3&&(forced.spider||rnd()<0.14+0.2*d)){
+        forced.spider=false; spiderCount++;
+        L.spiders.push({x:x+w*(0.35+rnd()*0.4),y:y-16,t:rnd()*6});
+      }
+    }
+    if(F.bfly&&!L.butterflies&&rnd()<0.1) L.butterflies=true;
+
+    if(!last){
+      let ny=y+(rnd()*2-1)*(52+58*d);
+      ny=clamp(ny,190,470);
+      if(ny<y-86) ny=y-86;
+      if(ny>y+165) ny=y+165;
+      const gap=Math.min(48+rnd()*(34+34*d),140-Math.max(0,y-ny)*0.62);
+      const nx=x+w+gap;
+      if(F.saw&&rnd()<0.09+0.20*d&&gap>62){
+        const cx2=x+w+gap/2, top=Math.min(y,ny);
+        if(rnd()<0.6) L.haz.push(SAW(cx2,top-118,cx2,top+56,17+rnd()*7,0.7+rnd()*0.7,rnd()*6.3));
+        else L.haz.push(SAW(x+w-14,top-40,nx+14,top-40,16+rnd()*6,0.6+rnd()*0.6,rnd()*6.3));
+      }
+      x=nx; y=ny;
+    } else { x+=w; }
+  }
+  L.width=Math.max(W,x+60);
+  return L;
+}
+
+// ───────── состояние ─────────
+const GRAV=1800, JUMP=690, SPEED=205, LEASH_SOFT=320, LEASH_HARD=460;
+let state='menu', cur=1, L=null, time=0, lvlTime=0, lvlDeaths=0;
+let cam={x:0}, parts=[], bfs=[], shocks=[], motes=[];
+const hero={x:0,y:0,vx:0,vy:0,w:26,h:30,onGround:false,blocked:false,face:1,
+  airTime:0,squash:0,walked:0,tired:0,distract:0,scared:0,bfCd:0,jumpCd:0,pushCd:0,
+  dead:0,blink:0,lost:0,step:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
+
+const heroBox=()=>({x:hero.x-hero.w/2,y:hero.y-hero.h/2,w:hero.w,h:hero.h});
+function say(text,dur){ hero.say={text,t:dur||1.8,max:dur||1.8}; }
+function emote(type){ if(!hero.emote||hero.emote.type!==type) hero.emote={type,t:0}; else hero.emote.t=Math.min(hero.emote.t,.6); }
+
+function startLevel(n,keepStats){
+  cur=n; L=buildLevel(n); PID=PID;
+  hero.x=L.start.x; hero.y=L.start.y; hero.vx=0; hero.vy=0;
+  hero.onGround=false; hero.airTime=0; hero.dead=0; hero.walked=0;
+  hero.tired=0; hero.distract=0; hero.scared=0; hero.bfCd=0; hero.jumpCd=0;
+  hero.pushCd=0; hero.lost=0; hero.rideId=null; hero.emote=null; hero.say=null;
+  bfs.length=0; parts.length=0; shocks.length=0;
+  cam.x=clamp(hero.x-W/2,0,L.width-W);
+  if(!keepStats){ lvlTime=0; lvlDeaths=0; }
+  state='play';
+  $('hud').classList.remove('hidden');
+  ['menu','levels','help','win'].forEach(i=>$(i).classList.add('hidden'));
+  showHint(L.hint);
+  updateHud();
+  if(n===1||INTRO[n]) say('СВЕТ ЕСТЬ. ИДУ.',2.2);
+}
+function respawn(){
+  const keep={t:lvlTime,d:lvlDeaths};
+  startLevel(cur,true); lvlTime=keep.t; lvlDeaths=keep.d;
+  hero.say=null; showHint(L.hint);
+}
+function die(){
+  if(hero.dead>0) return;
+  hero.dead=0.75; lvlDeaths++; hero.emote=null; hero.say=null;
+  sfx.die(); updateHud();
+  for(let i=0;i<26;i++) parts.push({x:hero.x,y:hero.y,
+    vx:(Math.random()*2-1)*230,vy:-Math.random()*280-40,life:.7+Math.random()*.4,
+    r:2+Math.random()*3,c:Math.random()<.5?'#ffd166':'#9fd0ff',g:900});
+}
+
+// ───────── толчок ─────────
+function doPush(){
+  if(state!=='play'||hero.dead>0||hero.pushCd>0) return;
+  actx();
+  const dx=hero.x-mouse.x, dy=hero.y-mouse.y, d=Math.hypot(dx,dy);
+  shocks.push({x:mouse.x,y:mouse.y,r:0,life:.45,hit:d<=235});
+  if(d>235){ hero.pushCd=.3; hero.pushMax=.3; return; }
+  const k=1-clamp(d/235,0,1);
+  const nx=d<2?0:dx/d, ny=d<2?-1:dy/d;
+  const p=470+400*k;
+  hero.vx=clamp(hero.vx+nx*p,-540,540);
+  hero.vy=clamp(hero.vy+ny*p*1.08,-840,520);
+  hero.onGround=false; hero.tired=0; hero.distract=0; hero.walked=0;
+  hero.squash=-1; hero.pushCd=.65; hero.pushMax=.65; sfx.push();
+}
+
+// ───────── ИИ ─────────
+function think(dt){
+  hero.t+=dt;
+  hero.jumpCd=Math.max(0,hero.jumpCd-dt);
+  hero.pushCd=Math.max(0,hero.pushCd-dt);
+  hero.tired=Math.max(0,hero.tired-dt);
+  hero.distract=Math.max(0,hero.distract-dt);
+  hero.scared=Math.max(0,hero.scared-dt);
+  hero.bfCd=Math.max(0,hero.bfCd-dt);
+  hero.squash=lerp(hero.squash,0,Math.min(1,10*dt));
+  if(hero.blink>0)hero.blink-=dt; else if(Math.random()<.005)hero.blink=.13;
+  if(hero.say){ hero.say.t-=dt; if(hero.say.t<=0)hero.say=null; }
+  if(hero.emote){ hero.emote.t+=dt; if(hero.emote.t>1.6)hero.emote=null; }
+
+  const dLight=dist(hero.x,hero.y,mouse.x,mouse.y);
+  if(dLight>LEASH_HARD) { if(!hero.lost){ hero.lost=1; say('...где ты?',2.4); } }
+  else if(dLight<LEASH_SOFT*.92) hero.lost=0;
+
+  // паук → паника
+  let near=null,nd=1e9;
+  for(const s of L.spiders){ const d2=dist(s.x,s.y,hero.x,hero.y); if(d2<nd){nd=d2;near=s;} }
+  if(near&&nd<135){ if(hero.scared<=0) sfx.scare();
+    hero.scared=Math.max(hero.scared,.45); hero.fleeFrom=near; emote('fear');
+    if(Math.random()<.02) say('!!!',1); }
+
+  // бабочка → залипание
+  let bf=null;
+  if(hero.scared<=0&&!hero.lost){
+    let bd=1e9;
+    for(const b of bfs){ const d2=dist(b.x,b.y,hero.x,hero.y); if(d2<240&&d2<bd){bd=d2;bf=b;} }
+    if(bf&&hero.distract<=0&&hero.bfCd<=0){
+      hero.distract=1.1; hero.bfCd=7.5; hero.bfTarget=bf;
+      emote('love'); sfx.ding(); say('ОШИБКА. БАБОЧКА.',1.6);
+    }
+  }
+  if(hero.distract<=0||(hero.bfTarget&&bfs.indexOf(hero.bfTarget)<0)){ hero.bfTarget=null; hero.distract=0; }
+
+  // перегрев
+  if(hero.onGround&&Math.abs(hero.vx)>55) hero.walked+=dt;
+  if(hero.walked>16&&hero.onGround&&hero.tired<=0&&hero.scared<=0&&!hero.lost){
+    hero.tired=1.0; hero.walked=0; emote('tired'); sfx.yawn(); say('перегрев...',1.5);
+  }
+
+  let tx=mouse.x, ty=mouse.y, spd=SPEED;
+  if(hero.lost){ tx=hero.x; ty=hero.y; spd=0; emote('lost'); }
+  else if(hero.scared>0&&hero.fleeFrom){ tx=hero.x+(hero.x-hero.fleeFrom.x)*4; ty=hero.y-30; spd=SPEED*1.3; }
+  else if(hero.distract>0&&hero.bfTarget){ tx=hero.bfTarget.x; ty=hero.bfTarget.y; spd=SPEED*.85; }
+  else if(hero.tired>0){ tx=hero.x; ty=hero.y; spd=0; emote('tired'); }
+  else if(dLight>LEASH_SOFT) spd=SPEED*lerp(1,.4,(dLight-LEASH_SOFT)/(LEASH_HARD-LEASH_SOFT));
+
+  const dx=tx-hero.x;
+  let want=clamp(dx*6,-spd,spd);
+  if(Math.abs(dx)<7) want=0;
+  const acc=hero.onGround?13:5.5;
+  hero.vx+=(want-hero.vx)*Math.min(1,acc*dt);
+  if(Math.abs(hero.vx)>25) hero.face=hero.vx>0?1:-1;
+
+  // прыжок: он тупо прыгает на свет, не глядя куда приземлится
+  if(hero.onGround&&hero.jumpCd<=0&&hero.tired<=0&&!hero.lost){
+    const up=hero.y-ty;
+    if(up>58){
+      const f=clamp((up-42)/230,.74,1);
+      hero.vy=-JUMP*f; hero.onGround=false; hero.jumpCd=.22; hero.squash=-.8; sfx.jump();
+    } else if(hero.blocked&&Math.abs(dx)>28){
+      hero.vy=-JUMP*.8; hero.onGround=false; hero.jumpCd=.3; sfx.jump();
+    }
+  }
+  // шаги
+  if(hero.onGround&&Math.abs(hero.vx)>60){ hero.step+=Math.abs(hero.vx)*dt;
+    if(hero.step>46){ hero.step=0; sfx.step(); } }
+}
+
+// ───────── физика ─────────
+function updatePlats(dt){
+  for(const p of L.plats){
+    p.dx=0; p.dy=0;
+    if(p.type==='move'&&!p.gone){
+      const t=time*p.speed+p.phase;
+      const nx=p.axis==='x'?p.ox+Math.sin(t)*p.range:p.ox;
+      const ny=p.axis==='y'?p.oy+Math.sin(t)*p.range:p.oy;
+      p.dx=nx-p.x; p.dy=ny-p.y; p.x=nx; p.y=ny;
+    }
+    if(p.type==='crumble'&&p.touched&&!p.gone){
+      p.timer+=dt; if(p.timer>1.0){ p.gone=true; p.vy=0; }
+    }
+    if(p.gone){ p.vy+=1400*dt; p.y+=p.vy*dt; }
+  }
+}
+function physics(dt){
+  hero.vy=Math.min(hero.vy+GRAV*dt,1450);
+  hero.blocked=false;
+  const solids=L.plats.filter(p=>!p.gone);
+  if(hero.rideId!=null){ const p=solids.find(q=>q.id===hero.rideId); if(p){ hero.x+=p.dx; hero.y+=p.dy; } }
+  hero.rideId=null;
+
+  hero.x+=hero.vx*dt;
+  let b=heroBox();
+  for(const p of solids){ if(aabb(b,p)){
+    if(hero.vx>0) hero.x=p.x-hero.w/2-.01;
+    else if(hero.vx<0) hero.x=p.x+p.w+hero.w/2+.01;
+    else hero.x=(hero.x<p.x+p.w/2)?p.x-hero.w/2-.01:p.x+p.w+hero.w/2+.01;
+    hero.vx=0; hero.blocked=true; b=heroBox(); } }
+
+  hero.y+=hero.vy*dt;
+  hero.onGround=false; b=heroBox();
+  for(const p of solids){ if(aabb(b,p)){
+    if(hero.vy>0){
+      hero.y=p.y-hero.h/2-.01; hero.onGround=true; hero.rideId=p.id;
+      if(hero.airTime>.28){ sfx.land(); hero.squash=1; dust(4); }
+      hero.airTime=0; hero.vy=0;
+      if(p.type==='crumble') p.touched=true;
+    } else if(hero.vy<0){ hero.y=p.y+p.h+hero.h/2+.01; hero.vy=40; }
+    b=heroBox(); } }
+  if(!hero.onGround) hero.airTime+=dt;
+  hero.x=clamp(hero.x,10,L.width-10);
+  if(hero.y>H+70) die();
+}
+function sawPos(h){
+  const t=(Math.sin(time*h.speed+h.phase)+1)/2;
+  return {x:lerp(h.ax,h.bx,t), y:lerp(h.ay,h.by,t)};
+}
+function checkHazards(){
+  if(hero.dead>0) return;
+  const b=heroBox();
+  for(const h of L.haz){
+    if(h.type==='saw'){
+      const c=sawPos(h);
+      const cx=clamp(c.x,b.x,b.x+b.w), cy=clamp(c.y,b.y,b.y+b.h);
+      if((cx-c.x)**2+(cy-c.y)**2<(h.r*.82)**2) return die();
+    } else if(aabb(b,h)) return die();
+  }
+  if(L.lavaFloor&&hero.y+hero.h/2>H-26) return die();
+}
+
+// ───────── частицы / бабочки ─────────
+function dust(n){ for(let i=0;i<(n||6);i++) parts.push({x:hero.x+(Math.random()*2-1)*10,
+  y:hero.y+hero.h/2,vx:(Math.random()*2-1)*70,vy:-Math.random()*60,life:.35,
+  r:1.5+Math.random()*2,c:'#8a7a5c',g:300}); }
+function updateParticles(dt){
+  for(let i=parts.length-1;i>=0;i--){ const p=parts[i];
+    p.vy+=(p.g||600)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+    if(p.life<=0) parts.splice(i,1); }
+  for(let i=shocks.length-1;i>=0;i--){ const s=shocks[i];
+    s.life-=dt; s.r+=(s.hit?900:520)*dt; if(s.life<=0) shocks.splice(i,1); }
+}
+let bfTimer=0;
+function updateButterflies(dt){
+  if(L.butterflies){
+    bfTimer-=dt;
+    if(bfTimer<=0&&bfs.length<2){
+      bfTimer=3.5+Math.random()*3;
+      const side=Math.random()<.5?-1:1;
+      bfs.push({hx:hero.x+side*(170+Math.random()*120),hy:hero.y-40-Math.random()*70,
+        x:0,y:0,t:Math.random()*6,life:7+Math.random()*4});
+    }
+  }
+  for(let i=bfs.length-1;i>=0;i--){ const b=bfs[i];
+    b.t+=dt; b.life-=dt;
+    b.x=b.hx+Math.sin(b.t*1.4)*46+Math.sin(b.t*.6)*20;
+    b.y=b.hy+Math.sin(b.t*2.1)*22+Math.cos(b.t*.9)*12;
+    if(b.life<=0) bfs.splice(i,1); }
+}
+
+// ───────── чекпойнты, логи, история ─────────
+const NOTES={
+ 8:'ЛОГ №41: я видел свет наверху. один раз. я не смог дойти.',
+ 18:'ЛОГ №17: не иди за светом, который не зовёт тебя.',
+ 28:'здесь стоял БЛОК-9. он ждал свой свет 4000 часов.',
+ 40:'старший говорил: солнце — это лампа, которую нельзя выключить.',
+ 55:'наверх шли все. наверх дошли не все.',
+ 68:'ЛОГ №3: если твой свет ошибается — он всё равно твой свет.',
+ 80:'я чувствую тепло на корпусе. значит, уже близко.',
+ 92:'ЛОГ последний: когда выйдешь — не оборачивайся. ему будет больно.'
+};
+const CHAPTER={
+ 20:'Цех 2. Конвейеры давно встали.\nБобби идёт вверх — потому что вверх идёшь ты.',
+ 40:'Цех 3. Здесь пахнет горячим металлом.\nБобби стал меньше бояться. Зря.',
+ 60:'Цех 4. Свет садится, а лестницы всё выше.\nОн ни разу не спросил, знаешь ли ты дорогу.',
+ 80:'Цех 5. Крыша уже близко.\nОн начал говорить о солнце так, будто видел его.'
+};
+function decorate(){
+  L.checks=[]; L.note=null; L.spawn={x:L.start.x,y:L.start.y};
+  const path=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=95);
+  const step=2;
+  for(let i=step-1;i<path.length;i+=step){
+    const p=path[i]; L.checks.push({x:p.x+p.w/2,y:p.y,on:false});
+  }
+  const nt=NOTES[L.n];
+  if(nt&&L.plats.length>2){ const p=L.plats[1]; L.note={x:p.x+p.w*0.55,y:p.y,text:nt,read:false}; }
+}
+
+// ───────── фон и мир ─────────
+const beams=[]; for(let i=0;i<70;i++) beams.push({x:Math.random()*4000,y:Math.random()*H,
+  w:20+Math.random()*90,h:120+Math.random()*260,d:.25+Math.random()*.35});
+for(let i=0;i<60;i++) motes.push({x:Math.random()*W,y:Math.random()*H,s:.08+Math.random()*.25,r:.6+Math.random()*1.4,p:Math.random()*6});
+
+function drawBackdrop(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0a0f1c'); g.addColorStop(1,'#05070e');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0e1524';
+  for(const b of beams){
+    const sx=b.x-cam.x*b.d;
+    const x=((sx%2400)+2400)%2400-200;
+    if(x>-160&&x<W+160) ctx.fillRect(x,b.y,b.w,b.h);
+  }
+}
+function drawPlatform(p){
+  const shake=(p.type==='crumble'&&p.touched&&!p.gone)?Math.sin(time*60)*2.2:0;
+  const x=p.x+shake,y=p.y;
+  ctx.fillStyle=p.type==='crumble'?'#4a3a30':'#413a33';
+  rr(ctx,x,y,p.w,p.h,4); ctx.fill();
+  ctx.fillStyle=p.type==='move'?'#8a7a3a':(p.type==='crumble'?'#6b5340':'#615247');
+  rr(ctx,x,y,p.w,7,3); ctx.fill();
+  ctx.fillStyle='#7d6a58';
+  for(let i=6;i<p.w-4;i+=22){ ctx.beginPath(); ctx.arc(x+i,y+15,1.7,0,7); ctx.fill(); }
+  if(p.type==='move'){
+    ctx.fillStyle='#1c1a12';
+    for(let i=0;i<p.w;i+=16){ ctx.beginPath(); ctx.moveTo(x+i,y); ctx.lineTo(x+i+7,y);
+      ctx.lineTo(x+i+1,y+7); ctx.lineTo(x+i-6,y+7); ctx.closePath(); ctx.fill(); }
+  }
+  if(p.type==='crumble'){
+    ctx.strokeStyle='#231a14'; ctx.lineWidth=1.6; ctx.beginPath();
+    ctx.moveTo(x+p.w*.3,y); ctx.lineTo(x+p.w*.42,y+p.h);
+    ctx.moveTo(x+p.w*.65,y); ctx.lineTo(x+p.w*.55,y+p.h); ctx.stroke();
+  }
+}
+function drawSpikes(h){
+  const n=Math.max(2,Math.floor(h.w/11));
+  ctx.fillStyle='#8e97a3'; ctx.beginPath();
+  for(let i=0;i<n;i++){ const x=h.x+i*(h.w/n);
+    if(h.down){ ctx.moveTo(x,h.y); ctx.lineTo(x+h.w/n,h.y); ctx.lineTo(x+h.w/(n*2),h.y+h.h); }
+    else { ctx.moveTo(x,h.y+h.h); ctx.lineTo(x+h.w/n,h.y+h.h); ctx.lineTo(x+h.w/(n*2),h.y); } }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#3a4049'; ctx.fillRect(h.x,h.down?h.y-3:h.y+h.h,h.w,3);
+}
+function drawSaw(h){
+  const c=sawPos(h);
+  ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(time*7);
+  ctx.fillStyle='#5c636d'; ctx.beginPath();
+  for(let i=0;i<12;i++){ const a=i/12*Math.PI*2;
+    ctx.lineTo(Math.cos(a)*h.r,Math.sin(a)*h.r);
+    ctx.lineTo(Math.cos(a+.16)*(h.r*1.3),Math.sin(a+.16)*(h.r*1.3)); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#22262d'; ctx.beginPath(); ctx.arc(0,0,h.r*.42,0,7); ctx.fill();
+  ctx.fillStyle='#ff5a4a'; ctx.beginPath(); ctx.arc(0,0,h.r*.2,0,7); ctx.fill();
+  ctx.restore();
+}
+function drawLava(h){
+  ctx.fillStyle='#ff8a2b';
+  ctx.beginPath(); ctx.moveTo(h.x,h.y+h.h);
+  for(let i=0;i<=h.w;i+=6) ctx.lineTo(h.x+i,h.y+Math.sin(time*3+i*.18)*2.2);
+  ctx.lineTo(h.x+h.w,h.y+h.h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#ffd35c';
+  ctx.fillRect(h.x+2,h.y+2+Math.sin(time*2)*1,h.w-4,2);
+}
+function drawSpider(s){
+  const b=Math.sin(s.t+time*2)*2;
+  ctx.strokeStyle='#1a1d26'; ctx.lineWidth=2.4;
+  for(let i=0;i<4;i++){ const a=.5+i*.42;
+    ctx.beginPath(); ctx.moveTo(s.x,s.y+b); ctx.lineTo(s.x-Math.cos(a)*17,s.y+b-6);
+    ctx.lineTo(s.x-Math.cos(a)*22,s.y+b+9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s.x,s.y+b); ctx.lineTo(s.x+Math.cos(a)*17,s.y+b-6);
+    ctx.lineTo(s.x+Math.cos(a)*22,s.y+b+9); ctx.stroke(); }
+  ctx.fillStyle='#15181f'; ctx.beginPath(); ctx.ellipse(s.x,s.y+b,12,10,0,0,7); ctx.fill();
+  ctx.fillStyle='#ff3b3b';
+  for(let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(s.x-5+i*3.4,s.y+b-3,1.5,0,7); ctx.fill(); }
+}
+function drawMoth(b){
+  const f=Math.sin(b.t*14)*.6+.5;
+  ctx.fillStyle='rgba(180,235,255,.9)';
+  ctx.beginPath(); ctx.ellipse(b.x-4,b.y,5*f+2,7,-.4,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(b.x+4,b.y,5*f+2,7,.4,0,7); ctx.fill();
+  ctx.fillStyle='#eafaff'; ctx.beginPath(); ctx.ellipse(b.x,b.y,2,5,0,0,7); ctx.fill();
+}
+function drawExit(){
+  const e=L.exit, pulse=.6+.4*Math.sin(time*2.2);
+  ctx.fillStyle='#2b2f38'; rr(ctx,e.x-4,e.y-6,e.w+8,e.h+6,5); ctx.fill();
+  ctx.fillStyle='#3d434f'; rr(ctx,e.x,e.y,e.w,e.h,4); ctx.fill();
+  ctx.fillStyle='#1e222a'; ctx.fillRect(e.x+e.w/2-1,e.y+6,2,e.h-12);
+  ctx.fillStyle='rgba(120,255,150,'+(.55+.45*pulse)+')';
+  rr(ctx,e.x+6,e.y-13,e.w-12,8,3); ctx.fill();
+  ctx.fillStyle='#0c2a14'; ctx.font='700 7px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('ВЫХОД',e.x+e.w/2,e.y-6.5);
+}
+function drawCheck(c){
+  ctx.fillStyle='#3a4049'; ctx.fillRect(c.x-2,c.y-30,4,30);
+  const on=c.on;
+  ctx.fillStyle=on?'#7dffa0':'#7a3a3a';
+  ctx.beginPath(); ctx.arc(c.x,c.y-34,5.5,0,7); ctx.fill();
+  if(on){ ctx.strokeStyle='rgba(125,255,160,.45)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(c.x,c.y-34,9+Math.sin(time*3)*2,0,7); ctx.stroke(); }
+}
+function drawNote(nt){
+  ctx.fillStyle='#26303f'; rr(ctx,nt.x-11,nt.y-26,22,26,3); ctx.fill();
+  ctx.fillStyle=nt.read?'#4a6fa5':'#6fb7ff';
+  rr(ctx,nt.x-8,nt.y-23,16,15,2); ctx.fill();
+  ctx.fillStyle='#0d1622'; ctx.fillRect(nt.x-6,nt.y-20,12,1.6); ctx.fillRect(nt.x-6,nt.y-16,9,1.6);
+}
+function drawHero(){
+  if(hero.dead>0) return;
+  const sq=hero.squash;
+  const sx=1+sq*.22, sy=1-sq*.26;
+  ctx.save(); ctx.translate(hero.x,hero.y+hero.h/2); ctx.scale(sx,sy);
+  const bw=hero.w, bh=hero.h;
+  const walk=hero.onGround&&Math.abs(hero.vx)>60;
+  const st=Math.sin(time*15);
+  // ноги
+  ctx.fillStyle='#5b6472';
+  ctx.fillRect(-8,-6,6,7+(walk?st*2:0)); ctx.fillRect(2,-6,6,7-(walk?st*2:0));
+  // корпус
+  ctx.fillStyle='#c3ccd8'; rr(ctx,-bw/2,-bh,bw,bh-4,7); ctx.fill();
+  ctx.fillStyle='#9aa5b4'; rr(ctx,-bw/2,-bh+bh*.62,bw,7,3); ctx.fill();
+  ctx.strokeStyle='#2b3340'; ctx.lineWidth=2; rr(ctx,-bw/2,-bh,bw,bh-4,7); ctx.stroke();
+  // антенна
+  const ab=Math.sin(time*4)*2;
+  ctx.strokeStyle='#8e99a8'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,-bh); ctx.lineTo(ab,-bh-9); ctx.stroke();
+  ctx.fillStyle=hero.lost?'#ff6b6b':'#ffd166';
+  ctx.beginPath(); ctx.arc(ab,-bh-11,2.6,0,7); ctx.fill();
+  // визор + глаз
+  ctx.fillStyle='#1b2230'; rr(ctx,-bw/2+3,-bh+5,bw-6,12,5); ctx.fill();
+  const look=clamp((mouse.x-hero.x)/120,-1,1), lookY=clamp((mouse.y-hero.y)/120,-1,1);
+  let er=3.4, ec='#ffd9a0';
+  if(hero.scared>0){ er=2.2; ec='#ff8b8b'; }
+  else if(hero.tired>0){ er=1.6; ec='#ffb46b'; }
+  else if(hero.distract>0){ er=4; ec='#9be3ff'; }
+  else if(hero.lost){ er=2; ec='#ff9d6b'; }
+  if(hero.blink>0) er=.8;
+  const shake=hero.scared>0?Math.sin(time*40)*1.2:0;
+  ctx.fillStyle=ec;
+  ctx.beginPath(); ctx.arc(look*4+shake,-bh+11+lookY*2,er,0,7); ctx.fill();
+  ctx.restore();
+  // облачко
+  if(hero.say){
+    const t=hero.say.text; ctx.font='700 12px "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
+    const w=ctx.measureText(t).width+16, x=hero.x-w/2, y=hero.y-hero.h/2-34;
+    ctx.fillStyle='rgba(16,22,34,.9)'; rr(ctx,x,y,w,20,7); ctx.fill();
+    ctx.strokeStyle='rgba(255,209,102,.5)'; ctx.lineWidth=1.2; rr(ctx,x,y,w,20,7); ctx.stroke();
+    ctx.fillStyle='#ffe9b8'; ctx.textAlign='center'; ctx.fillText(t,hero.x,y+14);
+  }
+  if(hero.emote){
+    const y=hero.y-hero.h/2-(hero.say?52:32)-Math.sin(hero.emote.t*4)*2;
+    ctx.font='700 16px sans-serif'; ctx.textAlign='center';
+    const m={love:'♥',fear:'!',tired:'z',lost:'?'}[hero.emote.type]||'?';
+    ctx.fillStyle={love:'#9be3ff',fear:'#ff6b6b',tired:'#ffb46b',lost:'#ffd166'}[hero.emote.type];
+    ctx.fillText(m,hero.x,y);
+  }
+}
+function drawWorld(){
+  if(L.lavaFloor){ const y=H-26;
+    ctx.fillStyle='#ff7a1f'; ctx.beginPath(); ctx.moveTo(cam.x-20,H);
+    for(let i=-20;i<W+40;i+=8) ctx.lineTo(cam.x+i,y+Math.sin(time*2.4+i*.05)*3);
+    ctx.lineTo(cam.x+W+40,H); ctx.closePath(); ctx.fill(); }
+  for(const p of L.plats) drawPlatform(p);
+  for(const h of L.haz){ if(h.type==='spike')drawSpikes(h); else if(h.type==='lava')drawLava(h); }
+  for(const c of L.checks) drawCheck(c);
+  if(L.note) drawNote(L.note);
+  drawExit();
+  for(const s of L.spiders) drawSpider(s);
+  for(const h of L.haz) if(h.type==='saw') drawSaw(h);
+  for(const b of bfs) drawMoth(b);
+  drawHero();
+  for(const p of parts){ ctx.globalAlpha=clamp(p.life*2,0,1); ctx.fillStyle=p.c;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
+  ctx.globalAlpha=1;
+  for(const s of shocks){ ctx.globalAlpha=clamp(s.life*2.2,0,1);
+    ctx.strokeStyle=s.hit?'#ffd9a0':'#6a7488'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); ctx.stroke(); }
+  ctx.globalAlpha=1;
+}
+function hole(x,y,r,a){
+  if(x<-r||x>W+r) return;
+  const g=dtx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba(0,0,0,'+a+')');
+  g.addColorStop(.55,'rgba(0,0,0,'+(a*.82)+')');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  dtx.fillStyle=g; dtx.beginPath(); dtx.arc(x,y,r,0,7); dtx.fill();
+}
+function lightR(){
+  return (L?L.light:214)*(1+Math.sin(time*7)*.012+Math.sin(time*17)*.008);
+}
+function drawDarkness(){
+  dtx.globalCompositeOperation='source-over';
+  dtx.fillStyle='rgba(4,6,13,.985)'; dtx.fillRect(0,0,W,H);
+  dtx.globalCompositeOperation='destination-out';
+  hole(mouse.sx,mouse.sy,lightR(),1);
+  hole(hero.x-cam.x,hero.y,58,.72);
+  for(const h of L.haz){
+    if(h.type==='lava') hole(h.x+h.w/2-cam.x,h.y,h.w*.7+34,.72);
+    if(h.type==='saw'){ const c=sawPos(h); hole(c.x-cam.x,c.y,h.r*2.4,.5); }
+  }
+  for(const s of L.spiders) hole(s.x-cam.x,s.y-4,26,.4);
+  for(const b of bfs) hole(b.x-cam.x,b.y,52,.8);
+  for(const c of L.checks) hole(c.x-cam.x,c.y-34,c.on?46:22,c.on?.7:.4);
+  if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
+  hole(L.exit.x+L.exit.w/2-cam.x,L.exit.y+L.exit.h/2,64,.62);
+  dtx.globalCompositeOperation='source-over';
+  ctx.drawImage(dcv,0,0);
+}
+function glow(x,y,r,col,a){
+  if(x<-r||x>W+r) return;
+  const g=ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,col.replace('%A%',a)); g.addColorStop(1,col.replace('%A%',0));
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+}
+function drawGlows(){
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  glow(mouse.x,mouse.y,lightR()*.95,'rgba(255,196,110,%A%)',.20);
+  glow(mouse.x,mouse.y,54,'rgba(255,236,190,%A%)',.42);
+  for(const h of L.haz){
+    if(h.type==='lava') glow(h.x+h.w/2,h.y,h.w*.8+40,'rgba(255,120,30,%A%)',.42);
+    if(h.type==='saw'){ const c=sawPos(h); glow(c.x,c.y,h.r*2.6,'rgba(255,70,50,%A%)',.30); }
+  }
+  for(const b of bfs) glow(b.x,b.y,56,'rgba(150,225,255,%A%)',.48);
+  for(const s of L.spiders) glow(s.x,s.y-4,20,'rgba(255,40,40,%A%)',.35);
+  for(const c of L.checks) glow(c.x,c.y-34,c.on?52:20,c.on?'rgba(110,255,150,%A%)':'rgba(255,80,80,%A%)',c.on?.45:.22);
+  if(L.note) glow(L.note.x,L.note.y-16,40,'rgba(110,180,255,%A%)',.32);
+  glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,70,'rgba(110,255,150,%A%)',.30);
+  glow(hero.x,hero.y-8,46,'rgba(255,210,150,%A%)',.16);
+  ctx.restore();
+}
+function drawCursor(){
+  const r=lightR();
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  ctx.strokeStyle='rgba(255,220,160,.16)'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,r*.99,0,7); ctx.stroke();
+  const cd=hero.pushCd;
+  if(cd>0){ ctx.strokeStyle='rgba(255,150,110,.55)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,17,-Math.PI/2,-Math.PI/2+(1-cd/(hero.pushMax||1))*Math.PI*2); ctx.stroke(); }
+  else { ctx.strokeStyle='rgba(255,235,190,.5)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,15+Math.sin(time*4)*1.5,0,7); ctx.stroke(); }
+  ctx.fillStyle='rgba(255,245,215,.95)';
+  ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,4.5,0,7); ctx.fill();
+  ctx.restore();
+  for(const m of motes){
+    const x=(m.x-cam.x*m.s)%W, xx=x<0?x+W:x;
+    const d=dist(xx,m.y+Math.sin(time*.6+m.p)*10,mouse.sx,mouse.sy);
+    if(d<r){ ctx.globalAlpha=(1-d/r)*.5; ctx.fillStyle='#ffeccb';
+      ctx.beginPath(); ctx.arc(xx,m.y+Math.sin(time*.6+m.p)*10,m.r,0,7); ctx.fill(); }
+  }
+  ctx.globalAlpha=1;
+}
+function drawOverlay(){
+  // стрелка к выходу
+  const ex=L.exit.x+L.exit.w/2-cam.x;
+  if(ex>W-30||ex<30){
+    const x=ex>W-30?W-22:22, dir=ex>W-30?1:-1;
+    ctx.fillStyle='rgba(120,255,150,'+(.35+.25*Math.sin(time*3))+')';
+    ctx.beginPath(); ctx.moveTo(x+dir*9,H/2); ctx.lineTo(x-dir*7,H/2-9); ctx.lineTo(x-dir*7,H/2+9);
+    ctx.closePath(); ctx.fill();
+  }
+  if(hero.lost){
+    ctx.fillStyle='rgba(255,160,120,'+(.3+.2*Math.sin(time*5))+')';
+    ctx.font='700 13px "Chalkboard SE","Comfortaa",sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Бобби потерял свет — подойди ближе',W/2,H-24);
+  }
+}
+
+// ───────── загрузка внешних звуков (voice/ и sfx/) ─────────
+const audioCache={};
+function playFile(base,count,vol){
+  if(!SND) return false;
+  const i=count>1?1+Math.floor(Math.random()*count):1;
+  const key=base+'_'+String(i).padStart(2,'0');
+  let a=audioCache[key];
+  if(a===undefined){
+    a=new Audio(key+'.mp3'); a.volume=vol==null?.75:vol; audioCache[key]=a;
+    a.addEventListener('error',()=>{audioCache[key]=null;});
+  }
+  if(!a) return false;
+  try{ a.currentTime=0; const p=a.play(); if(p&&p.catch)p.catch(()=>{}); return true; }catch(e){ return false; }
+}
+const SFXFILE={jump:['sfx/jump',1],land:['sfx/land',1],push:['sfx/push',1],die:['sfx/break',1],
+  ding:['sfx/moth',1],scare:['sfx/spider',1],yawn:['sfx/sit',1],win:['sfx/win',1],step:['sfx/step',3]};
+const rawSfx=Object.assign({},sfx);
+for(const k in rawSfx){ const f=SFXFILE[k];
+  sfx[k]=()=>{ if(f&&playFile(f[0],f[1],k==='step'?.35:.7)) return; rawSfx[k](); }; }
+
+const VOICE={'СВЕТ ЕСТЬ. ИДУ.':['voice/start',4],'...где ты?':['voice/lost',4],
+  'ОШИБКА. БАБОЧКА.':['voice/moth',3],'перегрев...':['voice/tired',3],'!!!':['voice/fear',4],
+  'ДВЕРЬ! Я НАШЁЛ ДВЕРЬ!':['voice/win',3],'Тут кто-то был... до меня.':['voice/note',2],
+  'Я запомнил это место.':['voice/check',1],'Это не твоя вина.':['voice/die',4],
+  'Перезапуск. Я в порядке!':['voice/respawn',2],'Ого-о!':['voice/push',2]};
+function say(text,dur){
+  hero.say={text,t:dur||1.8,max:dur||1.8};
+  const v=VOICE[text]; if(v) playFile(v[0],v[1],.85);
+}
+
+// фоновое гудение фабрики
+let ambStarted=false;
+function startAmbient(){
+  if(ambStarted) return; ambStarted=true;
+  if(playFile('sfx/amb_factory_loop',1,.35)){
+    const a=audioCache['sfx/amb_factory_loop_01']; if(a) a.loop=true;
+  }
+  const a=actx(); if(!a) return;
+  const g=a.createGain(); g.gain.value=.028;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=180;
+  [42,63.5,85].forEach(fr=>{ const o=a.createOscillator(); o.type='sawtooth';
+    o.frequency.value=fr; o.connect(f); o.start(); });
+  f.connect(g); g.connect(a.destination);
+}
+addEventListener('mousedown',startAmbient,{once:true});
+addEventListener('keydown',startAmbient,{once:true});
+addEventListener('touchstart',startAmbient,{once:true});
+let dripT=6;
+
+// ───────── жизненный цикл уровня ─────────
+let spawnPt=null, endT=0;
+function startLevel(n,keep){
+  cur=n; L=buildLevel(n); decorate();
+  if(!keep||!spawnPt) spawnPt={x:L.start.x,y:L.start.y,i:-1};
+  if(spawnPt.i>=0&&L.checks[spawnPt.i]){ for(let i=0;i<=spawnPt.i;i++) L.checks[i].on=true; }
+  hero.x=spawnPt.x; hero.y=spawnPt.y;
+  hero.vx=0;hero.vy=0;hero.onGround=false;hero.airTime=0;hero.dead=0;hero.walked=0;
+  hero.tired=0;hero.distract=0;hero.scared=0;hero.bfCd=0;hero.jumpCd=0;hero.pushCd=0;
+  hero.lost=0;hero.rideId=null;hero.emote=null;hero.say=null;
+  bfs.length=0;parts.length=0;shocks.length=0;bfTimer=2;
+  cam.x=clamp(hero.x-W/2,0,L.width-W);
+  if(!keep){ lvlTime=0; lvlDeaths=0; }
+  state='play';
+  $('hud').classList.remove('hidden');
+  ['menu','levels','help','win'].forEach(i=>$(i).classList.add('hidden'));
+  showHint(L.hint); updateHud();
+  if(!keep) say('СВЕТ ЕСТЬ. ИДУ.',2.2); else say('Перезапуск. Я в порядке!',1.6);
+}
+function respawn(){ const t=lvlTime,d=lvlDeaths; startLevel(cur,true); lvlTime=t; lvlDeaths=d; }
+function die(){
+  if(state!=='play'){ hero.x=L.start.x;hero.y=L.start.y;hero.vx=0;hero.vy=0; return; }
+  if(hero.dead>0) return;
+  hero.dead=.8; lvlDeaths++; hero.emote=null;
+  hero.say={text:'Это не твоя вина.',t:.8,max:.8};
+  const v=VOICE['Это не твоя вина.']; if(v)playFile(v[0],v[1],.85);
+  sfx.die(); updateHud();
+  for(let i=0;i<28;i++) parts.push({x:hero.x,y:hero.y,vx:(Math.random()*2-1)*240,
+    vy:-Math.random()*300-40,life:.7+Math.random()*.4,r:2+Math.random()*3,
+    c:Math.random()<.5?'#ffd166':'#9fd0ff',g:900});
+}
+function touchStuff(){
+  if(hero.dead>0) return;
+  const b=heroBox();
+  L.checks.forEach((c,i)=>{ if(!c.on&&Math.abs(hero.x-c.x)<26&&Math.abs(hero.y-c.y)<50){
+    c.on=true; spawnPt={x:c.x,y:c.y-30,i:i}; sfx.ding(); say('Я запомнил это место.',1.6); } });
+  if(L.note&&!L.note.read&&Math.abs(hero.x-L.note.x)<28&&Math.abs(hero.y-L.note.y)<50){
+    L.note.read=true; playFile('sfx/note',1,.6);
+    say('Тут кто-то был... до меня.',2);
+    showHint(L.note.text,7);
+  }
+  if(aabb(b,L.exit)) winLevel();
+}
+function stars(){ let s=1; if(lvlTime<=8+L.width/130)s++; if(lvlDeaths===0)s++; return s; }
+function winLevel(){
+  if(state!=='play') return;
+  state='win'; sfx.win(); playFile('sfx/door',1,.6);
+  hero.say=null; hero.vx=0;
+  const st=stars();
+  save.stars=save.stars||{};
+  save.stars[cur]=Math.max(save.stars[cur]||0,st);
+  save.done[cur]=true;
+  if(cur+1>save.unlocked) save.unlocked=Math.min(100,cur+1);
+  persist(); cloudPush(); spawnPt=null;
+  for(let i=0;i<40;i++) parts.push({x:L.exit.x+22,y:L.exit.y+20,
+    vx:(Math.random()*2-1)*200,vy:-Math.random()*320,life:1+Math.random(),
+    r:2+Math.random()*3,c:['#ffd166','#7ee081','#9be3ff'][i%3],g:520});
+  if(cur===100){ state='ending'; endT=0; $('hud').classList.add('hidden'); $('win').classList.add('hidden'); $('hint').classList.add('hidden'); return; }
+  $('winTitle').textContent=['','ГОТОВО!','ХОРОШО!','ИДЕАЛЬНО!'][st];
+  $('winMsg').innerHTML=(CHAPTER[cur]?CHAPTER[cur].replace('\n','<br>')
+    :['','Бобби выжил. Сам он не понял как.','Быстро. Он даже не успел испугаться.',
+      'Ни одной смерти. Ты хороший бог.'][st])
+    +'<br><span style="font-size:1.7em;letter-spacing:.1em">'
+    +'★'.repeat(st)+'<span style="opacity:.25">'+'★'.repeat(3-st)+'</span></span>';
+  $('winTime').textContent=fmt(lvlTime);
+  $('winDeaths').textContent=lvlDeaths;
+  $('btnNext').style.display=cur<100?'':'none';
+  $('win').classList.remove('hidden');
+  $('hud').classList.add('hidden');
+}
+
+// ───────── HUD / экраны ─────────
+const fmt=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
+function updateHud(){
+  $('hudLevel').textContent='Уровень '+cur+'/100';
+  $('hudDeaths').textContent='💀 '+lvlDeaths;
+  $('hudTime').textContent=fmt(lvlTime);
+}
+let hintT=0;
+function showHint(t,dur){
+  const el=$('hint');
+  if(!t){ el.classList.add('hidden'); hintT=0; return; }
+  el.textContent=t; el.classList.remove('hidden'); el.style.opacity=1; hintT=dur||6;
+}
+function showMenu(){
+  state='menu'; L=buildLevel(1); decorate();
+  hero.x=L.start.x; hero.y=L.start.y; hero.vx=0; hero.vy=0; hero.say=null; hero.lost=0;
+  cam.x=0; bfs.length=0;
+  $('hud').classList.add('hidden'); $('hint').classList.add('hidden');
+  ['levels','help','win'].forEach(i=>$(i).classList.add('hidden'));
+  $('menu').classList.remove('hidden');
+}
+function buildGrid(){
+  const g=$('grid'); g.innerHTML='';
+  for(let i=1;i<=100;i++){
+    const b=document.createElement('button');
+    const st=(save.stars&&save.stars[i])||0;
+    b.textContent=i;
+    if(i>save.unlocked){ b.className='locked'; }
+    else { if(save.done[i]) b.className='done';
+      b.title=st+'/3 ★';
+      if(st) b.textContent=i+'\n'+'★'.repeat(st);
+      b.onclick=()=>{ spawnPt=null; startLevel(i); }; }
+    g.appendChild(b);
+  }
+}
+$('btnPlay').onclick=()=>{ startAmbient(); spawnPt=null;
+  let n=1; for(let i=1;i<=100;i++) if(!save.done[i]){ n=i; break; }
+  startLevel(Math.min(n,save.unlocked)); };
+$('btnLevels').onclick=()=>{ buildGrid(); $('menu').classList.add('hidden');
+  $('win').classList.add('hidden'); $('levels').classList.remove('hidden'); state='menu'; };
+$('btnBack1').onclick=showMenu;
+$('btnHelp').onclick=()=>{ $('menu').classList.add('hidden'); $('help').classList.remove('hidden'); };
+$('btnBack2').onclick=()=>{ $('help').classList.add('hidden'); $('menu').classList.remove('hidden'); };
+$('btnBack3').onclick=()=>{ buildGrid(); $('win').classList.add('hidden'); $('levels').classList.remove('hidden'); state='menu'; };
+$('btnNext').onclick=()=>{ spawnPt=null; startLevel(Math.min(100,cur+1)); };
+$('btnAgain').onclick=()=>{ spawnPt=null; startLevel(cur); };
+$('btnMenu').onclick=showMenu;
+$('btnRestart').onclick=()=>{ spawnPt=null; startLevel(cur); };
+$('btnReset').onclick=()=>{ if(confirm('Стереть весь прогресс?')){
+  save={unlocked:1,done:{},best:{},stars:{},sound:SND}; persist(); cloudPush(); buildGrid(); } };
+function toggleSound(){ SND=!SND; save.sound=SND; persist(); $('btnSound').textContent=SND?'🔊':'🔇'; }
+$('btnSound').onclick=toggleSound;
+$('btnSound').textContent=SND?'🔊':'🔇';
+
+// ───────── финал ─────────
+const END=['Дверь открылась.','За ней не было потолка.',
+  'Бобби впервые увидел свет, который не двигался за курсором.',
+  'Он обернулся, чтобы сказать спасибо.','Но при солнце тебя не видно.',
+  'Ты всё ещё здесь.','Просто теперь он дойдёт сам.','','СПАСИБО, ЧТО ВЁЛ ЕГО.'];
+function drawEnding(){
+  const k=clamp(endT/16,0,1);
+  ctx.fillStyle='#05070e'; ctx.fillRect(0,0,W,H);
+  const g=ctx.createRadialGradient(W/2,H*.62,0,W/2,H*.62,120+k*900);
+  g.addColorStop(0,'rgba(255,240,205,'+(.25+k*.75)+')');
+  g.addColorStop(.5,'rgba(255,186,90,'+(.12+k*.5)+')');
+  g.addColorStop(1,'rgba(255,150,60,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(30,20,10,'+(1-k*.55)+')';
+  ctx.fillRect(0,H-90,W,90);
+  ctx.save(); ctx.translate(W/2,H-90);
+  ctx.fillStyle='#2a2118'; ctx.fillRect(-5,-14,4,14); ctx.fillRect(1,-14,4,14);
+  ctx.fillStyle='rgba(50,40,28,'+(1-k*.35)+')'; rr(ctx,-13,-44,26,32,7); ctx.fill();
+  ctx.fillStyle='rgba(255,225,170,'+(.5+k*.5)+')';
+  ctx.beginPath(); ctx.arc(0,-30,3.6,0,7); ctx.fill();
+  ctx.restore();
+  const i=Math.floor(endT/1.9);
+  if(i<END.length&&END[i]){
+    const a=clamp((endT/1.9-i)*3,0,1)*clamp((i+1-endT/1.9)*3,0,1);
+    ctx.globalAlpha=a;
+    ctx.fillStyle=i>=8?'#3a2a10':'#2b2210';
+    ctx.font=(i>=8?'700 30px':'400 20px')+' "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
+    ctx.textAlign='center'; ctx.fillText(END[i],W/2,H*.34);
+    ctx.globalAlpha=1;
+  }
+  if(endT>END.length*1.9+2){
+    ctx.fillStyle='rgba(60,45,20,.7)'; ctx.font='400 15px "Chalkboard SE","Comfortaa",sans-serif';
+    ctx.textAlign='center'; ctx.fillText('нажми Esc — вернуться в меню',W/2,H-24);
+  }
+}
+
+// ───────── главный цикл ─────────
+let last=performance.now();
+function frame(now){
+  let dt=(now-last)/1000; last=now;
+  dt=Math.min(dt,1/30); time+=dt;
+  mouse.x=mouse.sx+cam.x; mouse.y=mouse.sy;
+
+  if(hintT>0){ hintT-=dt; if(hintT<=0) $('hint').style.opacity=0; }
+  if(state==='ending'){ endT+=dt; if(endT>2&&endT<2.1) playFile('sfx/sun',1,.7);
+    drawEnding(); requestAnimationFrame(frame); return; }
+
+  if(state==='play'||state==='menu'||state==='win'){
+    updatePlats(dt);
+    if(state==='play') lvlTime+=dt;
+    if(hero.dead>0){ hero.dead-=dt; updateParticles(dt); if(hero.dead<=0) respawn(); }
+    else if(state!=='win'){ think(dt); physics(dt);
+      if(state==='play'){ checkHazards(); touchStuff(); } }
+    else { physics(dt); }
+    updateButterflies(dt); updateParticles(dt);
+    const tgt=clamp(hero.x-W/2+clamp(mouse.sx-W/2,-150,150)*.22,0,Math.max(0,L.width-W));
+    cam.x+=(tgt-cam.x)*Math.min(1,7*dt);
+    if(state==='play'&&Math.floor(lvlTime*2)!==Math.floor((lvlTime-dt)*2)) updateHud();
+    dripT-=dt;
+    if(dripT<=0){ dripT=7+Math.random()*11;
+      if(!playFile('sfx/amb_drip',1,.3)&&!playFile('sfx/amb_clank',2,.25)) tone(1400,900,.25,'sine',.02); }
+  }
+
+  ctx.clearRect(0,0,W,H);
+  drawBackdrop();
+  ctx.save(); ctx.translate(-cam.x,0); drawWorld(); ctx.restore();
+  drawDarkness();
+  ctx.save(); ctx.translate(-cam.x,0); drawGlows(); ctx.restore();
+  drawCursor();
+  if(state==='play') drawOverlay();
+  requestAnimationFrame(frame);
+}
+// ── сохранение в аккаунт (работает в опубликованной версии) ──
+let cloudDoc=null,cloudBusy=false,saveHook=null;
+window.BOBBY={
+  getSave:()=>({unlocked:save.unlocked,done:save.done||{},stars:save.stars||{},t:Date.now()}),
+  applyRemote:r=>{ mergeSave(r); if(!$('levels').classList.contains('hidden')) buildGrid(); },
+  onChange:f=>{ saveHook=f; }
+};
+function mergeSave(r){
+  if(!r) return;
+  save.unlocked=Math.max(save.unlocked||1,r.unlocked||1);
+  save.done=Object.assign({},r.done||{},save.done||{});
+  save.stars=save.stars||{};
+  const rs=r.stars||{};
+  for(const k in rs) save.stars[k]=Math.max(save.stars[k]||0,rs[k]||0);
+  persist();
+}
+function cloudPush(){
+  if(saveHook){ try{ saveHook(); }catch(e){} }
+  if(!cloudDoc||cloudBusy) return;
+  cloudBusy=true;
+  cloudDoc.set({unlocked:save.unlocked,done:save.done,stars:save.stars||{},t:Date.now()})
+    .catch(()=>{}).then(()=>{cloudBusy=false;});
+}
+async function initCloud(){
+  try{
+    if(!window.claude||!window.claude.use) return;
+    const db=await window.claude.use('db');
+    if(!db) return;
+    cloudDoc=db.doc('saves/progress');
+    const snap=await cloudDoc.get();
+    if(snap&&snap.exists) mergeSave(snap.data());
+    const el=$('cloudTag');
+    if(el) el.textContent='☁ прогресс сохраняется в аккаунте';
+    if(!$('levels').classList.contains('hidden')) buildGrid();
+    cloudPush();
+    cloudDoc.onSnapshot(s=>{ if(s&&s.exists) mergeSave(s.data()); },()=>{});
+  }catch(e){}
+}
+initCloud();
+
+showMenu();
+requestAnimationFrame(frame);
+</script>
+<script type="module">
+/* ══════════════════════════════════════════════════════════════════════
+   ВСТАВЬ СЮДА КОНФИГ ИЗ FIREBASE  (Настройки проекта → Ваши приложения → Веб)
+   Пока поля пустые — игра работает, но сохраняет только в этот браузер.
+   ══════════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  appId: ""
+};
+/* ═══════════════════ ниже ничего менять не нужно ═══════════════════ */
+
+const btn = document.getElementById('btnAuth');
+const tag = document.getElementById('cloudTag');
+const FB  = 'https://www.gstatic.com/firebasejs/10.12.2/';
+
+if (!firebaseConfig.apiKey) {
+  btn.style.display = 'none';
+  tag.textContent = '💾 прогресс сохраняется в этом браузере';
+} else {
+  try {
+    const { initializeApp } = await import(FB + 'firebase-app.js');
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
+      = await import(FB + 'firebase-auth.js');
+    const { getFirestore, doc, getDoc, setDoc } = await import(FB + 'firebase-firestore.js');
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const fdb  = getFirestore(app);
+    let ref = null, busy = false;
+
+    btn.onclick = () => {
+      if (auth.currentUser) signOut(auth);
+      else signInWithPopup(auth, new GoogleAuthProvider())
+             .catch(e => { tag.textContent = 'Не вышло войти: ' + e.code; });
+    };
+
+    onAuthStateChanged(auth, async u => {
+      if (!u) {
+        ref = null;
+        btn.textContent = 'Войти через Google';
+        tag.textContent = '💾 прогресс сохраняется в этом браузере';
+        return;
+      }
+      btn.textContent = 'Выйти · ' + (u.displayName || 'аккаунт');
+      ref = doc(fdb, 'saves', u.uid);
+      tag.textContent = '☁ загружаю прогресс...';
+      try {
+        const snap = await getDoc(ref);
+        if (snap.exists()) window.BOBBY.applyRemote(snap.data());
+        tag.textContent = '☁ прогресс в аккаунте Google';
+        sync();
+      } catch (e) { tag.textContent = '☁ ошибка чтения: ' + e.code; }
+    });
+
+    async function sync() {
+      if (!ref || busy) return;
+      busy = true;
+      try { await setDoc(ref, window.BOBBY.getSave()); } catch (e) {}
+      busy = false;
+    }
+    window.BOBBY.onChange(sync);
+  } catch (e) {
+    btn.style.display = 'none';
+    tag.textContent = '💾 прогресс сохраняется в этом браузере';
+  }
+}
+</script>
+</body>
+</html>
