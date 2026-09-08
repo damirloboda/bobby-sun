@@ -1455,28 +1455,29 @@ function drawEnding(){
 }
 
 // ───────── щиток: соедини провода ─────────
-const WCOL=['#ff6b6b','#ffd166','#7ee081','#6fb7ff'];
-const WP={x:W/2-192,y:H/2-128,w:384,h:256};
-const wLY=i=>WP.y+86+i*40;
-const wLX=sd=>sd?WP.x+WP.w-48:WP.x+48;
+const WCOL=['#d8342e','#e8c93a','#2f4fd8','#d63ab0'];
+const WDARK=['#8a1c18','#9a8420','#1c2f8a','#8a2170'];
+const WP={x:W/2-215,y:H/2-152,w:430,h:304};
+const wLY=i=>WP.y+80+i*56;
+const wLX=sd=>sd?WP.x+WP.w-56:WP.x+56;
 let wires=null;
 function openWires(){
   const right=[0,1,2,3];
   for(let i=3;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=right[i]; right[i]=right[j]; right[j]=t; }
-  if(right.every((v,i)=>v===i)) { const t=right[0]; right[0]=right[3]; right[3]=t; }
+  if(right.every((v,i)=>v===i)){ const t=right[0]; right[0]=right[3]; right[3]=t; }
   wires={right,links:{},drag:null,done:0,doneAt:0};
-  state='wires'; keys.space=false;
+  state='wires'; keys.space=false; $('hint').classList.add('hidden');
   if(!playFile('sfx/note',1,.55)) tone(620,880,.16,'triangle',.05);
 }
 function closeWires(fixed){
-  wires=null; state='play'; last=performance.now();
+  wires=null; state='play'; last=performance.now(); if(hintT>0) $('hint').classList.remove('hidden');
   if(fixed&&L.door){ L.door.box.fixed=true; L.door.cur=0; doorMemo=true;
     if(!playFile('sfx/checkpoint',1,.6)) tone(500,1000,.25,'triangle',.07); }
 }
 function wireNode(sx,sy){
   for(let i=0;i<4;i++){
-    if(Math.hypot(sx-wLX(0),sy-wLY(i))<26) return {side:0,i};
-    if(Math.hypot(sx-wLX(1),sy-wLY(i))<26) return {side:1,i};
+    if(Math.hypot(sx-wLX(0),sy-wLY(i))<30) return {side:0,i};
+    if(Math.hypot(sx-wLX(1),sy-wLY(i))<30) return {side:1,i};
   }
   return null;
 }
@@ -1489,43 +1490,88 @@ function wireUp(){
     const n=wireNode(mouse.sx,mouse.sy);
     if(n&&n.side===1&&wires.right[n.i]===wires.drag){
       wires.links[wires.drag]=n.i; wires.done++;
-      if(!playFile('sfx/checkpoint',1,.4)) tone(700+wires.done*120,900,.1,'triangle',.05);
+      if(!playFile('sfx/checkpoint',1,.4)) tone(680+wires.done*130,900,.1,'triangle',.05);
       if(wires.done===4) wires.doneAt=performance.now();
     }
     wires.drag=null;
   }
 }
+// провод с провисанием, как настоящий кабель
+function cable(x0,y0,x1,y1,ci,w){
+  const mx=(x0+x1)/2, my=Math.max(y0,y1)+Math.abs(x1-x0)*.26+16;
+  ctx.lineCap='round';
+  ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=w+4;
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.quadraticCurveTo(mx,my,x1,y1); ctx.stroke();
+  ctx.strokeStyle=WDARK[ci]; ctx.lineWidth=w+1.5;
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.quadraticCurveTo(mx,my,x1,y1); ctx.stroke();
+  ctx.strokeStyle=WCOL[ci]; ctx.lineWidth=w;
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.quadraticCurveTo(mx,my,x1,y1); ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=w*.3;
+  ctx.beginPath(); ctx.moveTo(x0,y0-w*.22); ctx.quadraticCurveTo(mx,my-w*.3,x1,y1-w*.22); ctx.stroke();
+  ctx.lineCap='butt';
+}
+function coil(cx,cy,dir){
+  ctx.strokeStyle='#8a5a2a'; ctx.lineWidth=2.4;
+  for(let k=0;k<5;k++){
+    ctx.beginPath();
+    ctx.arc(cx+dir*(k*3.6),cy,4.4,-Math.PI*.55,Math.PI*.55,dir<0);
+    ctx.stroke();
+  }
+  ctx.strokeStyle='#d79a4e'; ctx.lineWidth=1.1;
+  for(let k=0;k<5;k++){
+    ctx.beginPath();
+    ctx.arc(cx+dir*(k*3.6),cy-.8,4.4,-Math.PI*.5,Math.PI*.2,dir<0);
+    ctx.stroke();
+  }
+}
+function terminal(sd,i,ci){
+  const cx=wLX(sd), y=wLY(i), d=sd?1:-1;
+  ctx.fillStyle='#4a4f57'; rr(ctx,cx+d*22-11,y-19,22,38,3); ctx.fill();
+  ctx.fillStyle='#e3d24a'; rr(ctx,cx+d*22-8,y-16,16,10,2); ctx.fill();
+  ctx.fillStyle='#2a2410'; ctx.font='700 8px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('!',cx+d*22,y-8);
+  ctx.fillStyle=WDARK[ci]; rr(ctx,cx+d*6-16,y-11,32,22,3); ctx.fill();
+  ctx.fillStyle=WCOL[ci]; rr(ctx,cx+d*6-14,y-9,28,18,2); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.18)'; rr(ctx,cx+d*6-14,y-9,28,6,2); ctx.fill();
+  coil(cx,y,-d);
+}
 function drawWires(){
   if(!wires) return;
-  if(wires.doneAt&&performance.now()-wires.doneAt>450){ closeWires(true); return; }
-  ctx.fillStyle='rgba(5,8,16,.86)'; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='#1a212e'; rr(ctx,WP.x,WP.y,WP.w,WP.h,16); ctx.fill();
-  ctx.strokeStyle='#3d4759'; ctx.lineWidth=3; rr(ctx,WP.x,WP.y,WP.w,WP.h,16); ctx.stroke();
+  if(wires.doneAt&&performance.now()-wires.doneAt>500){ closeWires(true); return; }
+  ctx.fillStyle='rgba(4,6,12,.88)'; ctx.fillRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,WP.y,0,WP.y+WP.h);
+  g.addColorStop(0,'#2e3138'); g.addColorStop(.5,'#191c21'); g.addColorStop(1,'#101215');
+  ctx.fillStyle=g; rr(ctx,WP.x,WP.y,WP.w,WP.h,10); ctx.fill();
+  ctx.save(); rr(ctx,WP.x,WP.y,WP.w,WP.h,10); ctx.clip();
+  ctx.fillStyle='#5a606b'; ctx.fillRect(WP.x,WP.y,26,WP.h); ctx.fillRect(WP.x+WP.w-26,WP.y,26,WP.h);
+  ctx.fillStyle='rgba(0,0,0,.28)';
+  ctx.fillRect(WP.x+22,WP.y,5,WP.h); ctx.fillRect(WP.x+WP.w-27,WP.y,5,WP.h);
+  // фоновые магистрали, как в настоящем щитке
+  ctx.strokeStyle='#0c0e12'; ctx.lineWidth=13;
+  ctx.beginPath(); ctx.moveTo(W/2-26,WP.y-10); ctx.quadraticCurveTo(W/2-40,WP.y+WP.h*.6,W/2-30,WP.y+WP.h+10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2+26,WP.y-10); ctx.quadraticCurveTo(W/2+42,WP.y+WP.h*.55,W/2+32,WP.y+WP.h+10); ctx.stroke();
+  ctx.fillStyle='#6b7280'; rr(ctx,W/2-34,WP.y+8,68,15,4); ctx.fill();
+  ctx.fillStyle='#454b55'; rr(ctx,W/2-6,WP.y+2,12,26,3); ctx.fill();
+  // свободные концы висят вниз
+  for(let i=0;i<4;i++){
+    if(wires.links[i]===undefined&&wires.drag!==i)
+      cable(wLX(0),wLY(i),wLX(0)+52,wLY(i)+34,i,9);
+    const rj=wires.right[i];
+    if(Object.values(wires.links).indexOf(i)<0)
+      cable(wLX(1),wLY(i),wLX(1)-52,wLY(i)+34,rj,9);
+  }
+  for(const k in wires.links) cable(wLX(0),wLY(+k),wLX(1),wLY(wires.links[k]),+k,9);
+  if(wires.drag!==null&&wires.drag!==undefined)
+    cable(wLX(0),wLY(wires.drag),mouse.sx,mouse.sy,wires.drag,9);
+  for(let i=0;i<4;i++){ terminal(0,i,i); terminal(1,i,wires.right[i]); }
+  ctx.restore();
+  ctx.strokeStyle='#787f8b'; ctx.lineWidth=4; rr(ctx,WP.x,WP.y,WP.w,WP.h,10); ctx.stroke();
   ctx.textAlign='center';
   ctx.fillStyle=wires.done===4?'#7ee081':'#ffd166';
-  ctx.font='700 21px "Chalkboard SE","Comfortaa",sans-serif';
-  ctx.fillText(wires.done===4?'WORKING':'СОЕДИНИ ПРОВОДА',W/2,WP.y+40);
-  ctx.fillStyle='rgba(200,210,240,.45)'; ctx.font='400 12px sans-serif';
-  ctx.fillText(wires.done===4?'щиток закрывается...':'тяни от левого к правому того же цвета',W/2,WP.y+60);
-  for(let i=0;i<4;i++){
-    const j=wires.links[i];
-    if(j!==undefined){ ctx.strokeStyle=WCOL[i]; ctx.lineWidth=7; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(wLX(0),wLY(i)); ctx.lineTo(wLX(1),wLY(j)); ctx.stroke(); }
-  }
-  if(wires.drag!==null&&wires.drag!==undefined){
-    ctx.strokeStyle=WCOL[wires.drag]; ctx.lineWidth=6; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(wLX(0),wLY(wires.drag)); ctx.lineTo(mouse.sx,mouse.sy); ctx.stroke();
-  }
-  for(let i=0;i<4;i++){
-    for(const sd of [0,1]){
-      const cx=wLX(sd), col=sd?WCOL[wires.right[i]]:WCOL[i];
-      ctx.fillStyle='#0f141d'; rr(ctx,cx-15,wLY(i)-16,30,32,7); ctx.fill();
-      ctx.fillStyle=col; rr(ctx,cx-11,wLY(i)-11,22,22,5); ctx.fill();
-    }
-  }
-  ctx.lineCap='butt';
-  ctx.fillStyle='rgba(160,175,205,.5)'; ctx.font='400 11px sans-serif';
-  ctx.fillText('Esc — выйти',W/2,WP.y+WP.h-16);
+  ctx.font='700 19px \'Chalkboard SE\',\'Comfortaa\',sans-serif';
+  ctx.fillText(wires.done===4?'WORKING':'СОЕДИНИ ПРОВОДА',W/2,WP.y-16);
+  ctx.fillStyle='rgba(180,192,220,.55)'; ctx.font='400 12px sans-serif';
+  ctx.fillText(wires.done===4?'щиток закрывается...':'тяни от левой клеммы к правой того же цвета  ·  Esc — выйти',W/2,WP.y+WP.h+22);
 }
 
 // ───────── главный цикл ─────────
