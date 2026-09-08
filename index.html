@@ -98,6 +98,7 @@ html,body{overscroll-behavior:none}
       <b>ЛКМ</b> — божественный толчок: отбрасывает Бобби <i>от</i> курсора.<br>
       &nbsp;&nbsp;&nbsp;Кликни <b>под ним</b> — подбросишь вверх.<br>
       <b>Пробел</b> — способность робота. У каждого своя, попробуй всех троих.<br>
+      <b>E</b> — починить щиток у запертой двери.<br>
       <b>Esc</b> — пауза, <b>R</b> — заново, <b>S</b> — звук.<br>
       <span class="tiny">Бобби слеп к опасностям, залипает на бабочках,<br>устаёт от долгой ходьбы и панически боится пауков.</span>
     </div>
@@ -207,7 +208,7 @@ function persist(){ try{localStorage.setItem(SKEY,JSON.stringify(save));}catch(e
 
 // ───────── ввод ─────────
 const mouse={sx:W/2,sy:H*0.5,x:W/2,y:H*0.5,inside:true};
-const keys={space:false,spaceHit:false};
+const keys={space:false,spaceHit:false,eHit:false};
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function setPointer(cx,cy,touch){
   const r=cv.getBoundingClientRect();
@@ -215,9 +216,13 @@ function setPointer(cx,cy,touch){
   mouse.sy=clamp((cy-r.top)*(H/r.height)-(touch?70:0),0,H);
 }
 addEventListener('mousemove',e=>setPointer(e.clientX,e.clientY));
-addEventListener('mousedown',e=>{ if(e.button===0){ setPointer(e.clientX,e.clientY);
-  if(e.target===cv){ doPush(); e.preventDefault(); } } });
+addEventListener('mousedown',e=>{ if(e.button!==0) return; setPointer(e.clientX,e.clientY);
+  if(state==='wires'){ wireDown(); e.preventDefault(); return; }
+  if(e.target===cv){ doPush(); e.preventDefault(); } });
+addEventListener('mouseup',()=>{ if(state==='wires') wireUp(); });
+addEventListener('touchend',()=>{ if(state==='wires') wireUp(); });
 addEventListener('touchstart',e=>{ const t=e.touches[0]; if(!t)return; setPointer(t.clientX,t.clientY,1);
+  if(state==='wires'){ wireDown(); e.preventDefault(); return; }
   if(e.target===cv) e.preventDefault(); },{passive:false});
 addEventListener('touchmove',e=>{ const t=e.touches[0]; if(!t)return; setPointer(t.clientX,t.clientY,1);
   if(e.target===cv) e.preventDefault(); },{passive:false});
@@ -228,9 +233,11 @@ $('btnPush').addEventListener('pointerleave',()=>{ keys.space=false; });
 $('btnPush').addEventListener('pointercancel',()=>{ keys.space=false; });
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
+  if(k==='e'||k==='у'){ keys.eHit=true; }
   if(k==='r'||k==='к'){ if(state==='play'||state==='paused'){ spawnPt=null; startLevel(cur); } }
   if(k==='escape'){ e.preventDefault();
-    if(state==='play') pauseGame();
+    if(state==='wires') closeWires(false);
+    else if(state==='play') pauseGame();
     else if(state==='paused') resumeGame();
     else if(state==='win'||state==='ending') showMenu(); }
   if(k==='s'||k==='ы'){ toggleSound(); }
@@ -459,6 +466,24 @@ function think(dt){
 
   hero.spacePrev=keys.space; keys.spaceHit=false;
 
+  // щиток и электрическая дверь
+  if(L.door){
+    const D=L.door;
+    if(!D.box.fixed){
+      D.near=Math.abs(hero.x-D.box.x)<44&&Math.abs(hero.y-D.box.y)<62&&hero.dead<=0;
+      D.nearT=D.near?D.nearT+dt:0;
+      if(D.near&&(keys.eHit||(isTouch&&D.nearT>.45))) openWires();
+    } else {
+      D.near=false;
+      if(!D.open){
+        D.cur=Math.min(1,D.cur+dt/0.95);
+        if(D.cur>=1){ D.open=true; D.anim=0;
+          if(!playFile('sfx/door',1,.6)) tone(110,430,.5,'sawtooth',.07); }
+      } else D.anim=Math.min(1,D.anim+dt*2.1);
+    }
+  }
+  keys.eHit=false;
+
   // след из призраков у летающего робота
   if(RB.fly){
     hero.trailT+=dt;
@@ -555,6 +580,7 @@ function physics(dt){
   hero.vy=Math.min(hero.vy+GRAV*dt,1450);
   hero.blocked=false;
   const solids=L.plats.filter(p=>!p.gone);
+  if(L.door&&!L.door.open) solids.push({id:-99,x:L.door.x,y:0,w:L.door.w,h:L.door.y,type:'wall',dx:0,dy:0});
   if(hero.rideId!=null){ const p=solids.find(q=>q.id===hero.rideId); if(p){ hero.x+=p.dx; hero.y+=p.dy; } }
   hero.rideId=null;
 
@@ -664,6 +690,20 @@ function freeSpot(p,margin){
   if(!ok.length) return null;
   return ok[Math.floor(ok.length/2)];
 }
+const DOOR_LEVELS={25:1,34:1,46:1};
+function placeDoor(){
+  L.door=null;
+  if(!DOOR_LEVELS[L.n]) return;
+  const cands=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=150);
+  if(!cands.length) return;
+  const p=cands[Math.floor(cands.length/2)];
+  const dx=p.x+p.w-38, bx=p.x+42;
+  const clash=L.plats.some(q=>q!==p&&q.x<dx+22&&q.x+q.w>dx-10&&q.y<p.y);
+  if(clash||hazBlocks(bx,p.y,26)||hazBlocks(dx,p.y,26)) return;
+  L.door={x:dx,y:p.y,w:16,open:false,anim:0,cur:-1,near:false,nearT:0,
+          box:{x:bx,y:p.y,fixed:false}};
+  L.hint='Дверь заперта. Подойди к щитку и нажми E.';
+}
 function decorate(){
   L.checks=[]; L.note=null; L.spawn={x:L.start.x,y:L.start.y};
   const path=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=95);
@@ -677,6 +717,7 @@ function decorate(){
     if(x!==null) L.note={x,y:p.y,text:nt,read:false};
   }
   L.spiders=L.spiders.filter(sp=>!hazBlocks(sp.x,sp.y+16,22));
+  placeDoor();
 }
 
 // ───────── фон и мир ─────────
@@ -784,6 +825,55 @@ function drawMoth(b){
   ctx.fillStyle='rgba(255,255,255,.9)';
   ctx.beginPath(); ctx.arc(0,-3.2,1.1,0,7); ctx.fill();
   ctx.restore();
+}
+function wirePt(D,t){
+  const x0=D.box.x, y0=D.y-30, x1=(D.box.x+D.x)/2, y1=D.y-6, x2=D.x-9, y2=D.y-52;
+  const u=1-t;
+  return {x:u*u*x0+2*u*t*x1+t*t*x2, y:u*u*y0+2*u*t*y1+t*t*y2};
+}
+function drawDoor(){
+  const D=L.door; if(!D) return;
+  const bot=D.y, top=42, doorH=98, off=D.anim*doorH*.94;
+  ctx.fillStyle='#333a44'; ctx.fillRect(D.x-7,top,D.w+14,bot-top-doorH);
+  ctx.fillStyle='#272d36';
+  for(let y=top+6;y<bot-doorH;y+=20) ctx.fillRect(D.x-7,y,D.w+14,3);
+  ctx.fillStyle='#4a525e'; ctx.fillRect(D.x-9,bot-doorH-4,D.w+18,doorH+4);
+  if(off<doorH){
+    ctx.fillStyle=D.box.fixed?'#5d6a7a':'#6b5a48';
+    rr(ctx,D.x-5,bot-doorH,D.w+10,doorH-off,3); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.30)';
+    for(let i=0;i<4;i++){ const yy=bot-doorH+8+i*22;
+      if(yy<bot-off-6) ctx.fillRect(D.x-3,yy,D.w+6,7); }
+  }
+  // провод
+  ctx.strokeStyle=D.box.fixed?'#e2c24a':'#39404c'; ctx.lineWidth=2.6;
+  ctx.beginPath(); ctx.moveTo(D.box.x,D.y-30);
+  ctx.quadraticCurveTo((D.box.x+D.x)/2,D.y-6,D.x-9,D.y-52); ctx.stroke();
+  // бегущий ток
+  if(D.box.fixed&&D.cur>=0&&D.cur<1){
+    for(let k=0;k<3;k++){
+      const t=clamp(D.cur-k*.06,0,1), pt=wirePt(D,t);
+      ctx.fillStyle='rgba(255,232,120,'+(.95-k*.28)+')';
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,4.2-k*1.1,0,7); ctx.fill();
+    }
+  }
+  // щиток
+  const bx=D.box.x, by=D.y;
+  ctx.fillStyle='#3a4049'; ctx.fillRect(bx-2,by-26,4,26);
+  ctx.fillStyle='#2b323d'; rr(ctx,bx-16,by-54,32,30,4); ctx.fill();
+  ctx.strokeStyle='#4d5765'; ctx.lineWidth=2; rr(ctx,bx-16,by-54,32,30,4); ctx.stroke();
+  const okc=D.box.fixed;
+  ctx.fillStyle=okc?'#7dffa0':'#ff6b6b';
+  ctx.beginPath(); ctx.arc(bx,by-45,3.2,0,7); ctx.fill();
+  ctx.font='700 8px sans-serif'; ctx.textAlign='center';
+  ctx.fillStyle=okc?'#7dffa0':'#ff8a8a';
+  ctx.fillText(okc?'WORKING':'BROKEN',bx,by-31);
+  if(D.near&&!okc){
+    const yy=by-70+Math.sin(time*4)*2;
+    ctx.fillStyle='rgba(16,22,34,.9)'; rr(ctx,bx-13,yy-13,26,20,6); ctx.fill();
+    ctx.strokeStyle='rgba(255,209,102,.7)'; ctx.lineWidth=1.4; rr(ctx,bx-13,yy-13,26,20,6); ctx.stroke();
+    ctx.fillStyle='#ffe9b8'; ctx.font='700 12px sans-serif'; ctx.fillText('E',bx,yy+2);
+  }
 }
 function drawExit(){
   const e=L.exit, pulse=.6+.4*Math.sin(time*2.2);
@@ -970,6 +1060,7 @@ function drawWorld(){
   for(const c of L.checks) drawCheck(c);
   if(L.note) drawNote(L.note);
   drawExit();
+  drawDoor();
   for(const s of L.spiders) drawSpider(s);
   for(const h of L.haz) if(h.type==='saw') drawSaw(h);
   for(const b of bfs) drawMoth(b);
@@ -1007,6 +1098,8 @@ function drawDarkness(){
   for(const b of bfs) hole(b.x-cam.x,b.y,52,.8);
   for(const c of L.checks) hole(c.x-cam.x,c.y-34,c.on?46:22,c.on?.7:.4);
   if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
+  if(L.door){ hole(L.door.box.x-cam.x,L.door.y-40,44,.72);
+    hole(L.door.x-cam.x,L.door.y-52,52,.6); }
   hole(L.exit.x+L.exit.w/2-cam.x,L.exit.y+L.exit.h/2,64,.62);
   dtx.globalCompositeOperation='source-over';
   ctx.drawImage(dcv,0,0);
@@ -1029,6 +1122,12 @@ function drawGlows(){
   for(const s of L.spiders) glow(s.x,s.y-4,20,'rgba(255,40,40,%A%)',.35);
   for(const c of L.checks) glow(c.x,c.y-34,c.on?52:20,c.on?'rgba(110,255,150,%A%)':'rgba(255,80,80,%A%)',c.on?.45:.22);
   if(L.note) glow(L.note.x,L.note.y-16,40,'rgba(110,180,255,%A%)',.32);
+  if(L.door){
+    const ok=L.door.box.fixed;
+    glow(L.door.box.x,L.door.y-45,44,ok?'rgba(110,255,150,%A%)':'rgba(255,90,90,%A%)',ok?.34:.28);
+    if(ok&&L.door.cur<1&&L.door.cur>=0){ const pt=wirePt(L.door,L.door.cur);
+      glow(pt.x,pt.y,40,'rgba(255,225,110,%A%)',.5); }
+  }
   glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,70,'rgba(110,255,150,%A%)',.30);
   glow(hero.x,hero.y-8,46,'rgba(255,210,150,%A%)',.16);
   if(ROBOTS[rbI()].fly&&hero.dead<=0)
@@ -1141,9 +1240,11 @@ function jetSound(level){
 }
 
 // ───────── жизненный цикл уровня ─────────
-let spawnPt=null, endT=0;
+let spawnPt=null, endT=0, doorMemo=false;
 function startLevel(n,keep){
   cur=n; L=buildLevel(n); decorate();
+  if(!keep){ doorMemo=false; }
+  if(L.door&&doorMemo){ L.door.box.fixed=true; L.door.open=true; L.door.cur=1; L.door.anim=1; }
   if(!keep||!spawnPt) spawnPt={x:L.start.x,y:L.start.y,i:-1};
   if(spawnPt.i>=0&&L.checks[spawnPt.i]){ for(let i=0;i<=spawnPt.i;i++) L.checks[i].on=true; }
   hero.x=spawnPt.x; hero.y=spawnPt.y;
@@ -1353,6 +1454,80 @@ function drawEnding(){
   }
 }
 
+// ───────── щиток: соедини провода ─────────
+const WCOL=['#ff6b6b','#ffd166','#7ee081','#6fb7ff'];
+const WP={x:W/2-192,y:H/2-128,w:384,h:256};
+const wLY=i=>WP.y+86+i*40;
+const wLX=sd=>sd?WP.x+WP.w-48:WP.x+48;
+let wires=null;
+function openWires(){
+  const right=[0,1,2,3];
+  for(let i=3;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=right[i]; right[i]=right[j]; right[j]=t; }
+  if(right.every((v,i)=>v===i)) { const t=right[0]; right[0]=right[3]; right[3]=t; }
+  wires={right,links:{},drag:null,done:0,doneAt:0};
+  state='wires'; keys.space=false;
+  if(!playFile('sfx/note',1,.55)) tone(620,880,.16,'triangle',.05);
+}
+function closeWires(fixed){
+  wires=null; state='play'; last=performance.now();
+  if(fixed&&L.door){ L.door.box.fixed=true; L.door.cur=0; doorMemo=true;
+    if(!playFile('sfx/checkpoint',1,.6)) tone(500,1000,.25,'triangle',.07); }
+}
+function wireNode(sx,sy){
+  for(let i=0;i<4;i++){
+    if(Math.hypot(sx-wLX(0),sy-wLY(i))<26) return {side:0,i};
+    if(Math.hypot(sx-wLX(1),sy-wLY(i))<26) return {side:1,i};
+  }
+  return null;
+}
+function wireDown(){
+  const n=wireNode(mouse.sx,mouse.sy);
+  if(n&&n.side===0&&wires.links[n.i]===undefined) wires.drag=n.i;
+}
+function wireUp(){
+  if(wires&&wires.drag!==null&&wires.drag!==undefined){
+    const n=wireNode(mouse.sx,mouse.sy);
+    if(n&&n.side===1&&wires.right[n.i]===wires.drag){
+      wires.links[wires.drag]=n.i; wires.done++;
+      if(!playFile('sfx/checkpoint',1,.4)) tone(700+wires.done*120,900,.1,'triangle',.05);
+      if(wires.done===4) wires.doneAt=performance.now();
+    }
+    wires.drag=null;
+  }
+}
+function drawWires(){
+  if(!wires) return;
+  if(wires.doneAt&&performance.now()-wires.doneAt>450){ closeWires(true); return; }
+  ctx.fillStyle='rgba(5,8,16,.86)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#1a212e'; rr(ctx,WP.x,WP.y,WP.w,WP.h,16); ctx.fill();
+  ctx.strokeStyle='#3d4759'; ctx.lineWidth=3; rr(ctx,WP.x,WP.y,WP.w,WP.h,16); ctx.stroke();
+  ctx.textAlign='center';
+  ctx.fillStyle=wires.done===4?'#7ee081':'#ffd166';
+  ctx.font='700 21px "Chalkboard SE","Comfortaa",sans-serif';
+  ctx.fillText(wires.done===4?'WORKING':'СОЕДИНИ ПРОВОДА',W/2,WP.y+40);
+  ctx.fillStyle='rgba(200,210,240,.45)'; ctx.font='400 12px sans-serif';
+  ctx.fillText(wires.done===4?'щиток закрывается...':'тяни от левого к правому того же цвета',W/2,WP.y+60);
+  for(let i=0;i<4;i++){
+    const j=wires.links[i];
+    if(j!==undefined){ ctx.strokeStyle=WCOL[i]; ctx.lineWidth=7; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(wLX(0),wLY(i)); ctx.lineTo(wLX(1),wLY(j)); ctx.stroke(); }
+  }
+  if(wires.drag!==null&&wires.drag!==undefined){
+    ctx.strokeStyle=WCOL[wires.drag]; ctx.lineWidth=6; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(wLX(0),wLY(wires.drag)); ctx.lineTo(mouse.sx,mouse.sy); ctx.stroke();
+  }
+  for(let i=0;i<4;i++){
+    for(const sd of [0,1]){
+      const cx=wLX(sd), col=sd?WCOL[wires.right[i]]:WCOL[i];
+      ctx.fillStyle='#0f141d'; rr(ctx,cx-15,wLY(i)-16,30,32,7); ctx.fill();
+      ctx.fillStyle=col; rr(ctx,cx-11,wLY(i)-11,22,22,5); ctx.fill();
+    }
+  }
+  ctx.lineCap='butt';
+  ctx.fillStyle='rgba(160,175,205,.5)'; ctx.font='400 11px sans-serif';
+  ctx.fillText('Esc — выйти',W/2,WP.y+WP.h-16);
+}
+
 // ───────── главный цикл ─────────
 let last=performance.now();
 function frame(now){
@@ -1387,6 +1562,7 @@ function frame(now){
   ctx.save(); ctx.translate(-cam.x,0); drawGlows(); ctx.restore();
   drawCursor();
   if(state==='play') drawOverlay();
+  if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
   requestAnimationFrame(frame);
 }
