@@ -350,8 +350,8 @@ let state='menu', cur=1, L=null, time=0, lvlTime=0, lvlDeaths=0;
 let cam={x:0}, parts=[], bfs=[], shocks=[], motes=[];
 const hero={x:0,y:0,vx:0,vy:0,w:26,h:30,onGround:false,blocked:false,face:1,
   airTime:0,squash:0,walked:0,tired:0,distract:0,scared:0,bfCd:0,jumpCd:0,pushCd:0,
-  dead:0,blink:0,lost:0,step:0,gait:0,jet:2.5,jetOn:false,jetVis:0,tilt:0,
-  thrust:0,jetMin:0,wantPrev:false,spacePrev:false,faceAmt:1,trail:[],trailT:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
+  dead:0,blink:0,lost:0,step:0,gait:0,coyote:0,jet:2.5,jetOn:false,jetVis:0,tilt:0,
+  thrust:0,jetMin:0,wantPrev:false,spacePrev:false,trail:[],trailT:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
 
 const heroBox=()=>({x:hero.x-hero.w/2,y:hero.y-hero.h/2,w:hero.w,h:hero.h});
 function say(text,dur){ hero.say={text,t:dur||1.8,max:dur||1.8}; }
@@ -505,21 +505,23 @@ function think(dt){
   const acc=hero.onGround?13:(hero.thrust>.1?9:5.5);
   hero.vx+=(want-hero.vx)*Math.min(1,acc*dt);
   if(Math.abs(hero.vx)>25) hero.face=hero.vx>0?1:-1;
-  hero.faceAmt=lerp(hero.faceAmt,mouse.x>=hero.x?1:-1,Math.min(1,11*dt));
 
   // прыжок: он тупо прыгает на свет, не глядя куда приземлится
-  if(hero.onGround&&hero.jumpCd<=0&&hero.tired<=0&&!hero.lost){
+  if((hero.onGround||hero.coyote>0)&&hero.jumpCd<=0&&hero.tired<=0&&!hero.lost){
     const up=hero.y-ty;
     if(up>58){
       const f=clamp((up-42)/230,.74,1);
-      hero.vy=-JUMP*f; hero.onGround=false; hero.jumpCd=.22; hero.squash=-.8; sfx.jump();
+      hero.vy=-JUMP*f; hero.onGround=false; hero.coyote=0; hero.jumpCd=.22; hero.squash=-.8; sfx.jump();
     } else if(hero.blocked&&Math.abs(dx)>28){
       hero.vy=-JUMP*.8; hero.onGround=false; hero.jumpCd=.3; sfx.jump();
     }
   }
   // шаги
   if(hero.onGround&&Math.abs(hero.vx)>60){ hero.step+=Math.abs(hero.vx)*dt;
-    if(hero.step>46){ hero.step=0; sfx.step(); } }
+    if(hero.step>46){ hero.step=0; sfx.step();
+      parts.push({x:hero.x-hero.vx*.02,y:hero.y+hero.h/2-1,
+        vx:-hero.vx*.12+(Math.random()*2-1)*18,vy:-14-Math.random()*22,
+        life:.28+Math.random()*.16,r:1+Math.random()*1.6,c:'#7d6a58',g:260}); } }
 }
 
 // ───────── физика ─────────
@@ -563,7 +565,7 @@ function physics(dt){
       if(p.type==='crumble') p.touched=true;
     } else if(hero.vy<0){ hero.y=p.y+p.h+hero.h/2+.01; hero.vy=40; }
     b=heroBox(); } }
-  if(!hero.onGround) hero.airTime+=dt;
+  if(hero.onGround) hero.coyote=.11; else { hero.airTime+=dt; hero.coyote=Math.max(0,hero.coyote-dt); }
   hero.x=clamp(hero.x,10,L.width-10);
   if(hero.y<58&&hero.vy<0){ hero.y=58; hero.vy=0; }  // потолок цеха: выше не улететь
   if(hero.y>H+70) die();
@@ -579,8 +581,8 @@ function checkHazards(){
     if(h.type==='saw'){
       const c=sawPos(h);
       const cx=clamp(c.x,b.x,b.x+b.w), cy=clamp(c.y,b.y,b.y+b.h);
-      if((cx-c.x)**2+(cy-c.y)**2<(h.r*.82)**2) return die();
-    } else if(aabb(b,h)) return die();
+      if((cx-c.x)**2+(cy-c.y)**2<(h.r*.82)**2){ h.flash=.5; return die(); }
+    } else if(aabb(b,h)){ h.flash=.5; return die(); }
   }
   if(L.lavaFloor&&hero.y+hero.h/2>H-26) return die();
 }
@@ -590,6 +592,7 @@ function dust(n){ for(let i=0;i<(n||6);i++) parts.push({x:hero.x+(Math.random()*
   y:hero.y+hero.h/2,vx:(Math.random()*2-1)*70,vy:-Math.random()*60,life:.35,
   r:1.5+Math.random()*2,c:'#8a7a5c',g:300}); }
 function updateParticles(dt){
+  if(L&&L.haz) for(const h of L.haz) if(h.flash>0) h.flash-=dt;
   for(let i=parts.length-1;i>=0;i--){ const p=parts[i];
     p.vy+=(p.g||600)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
     if(p.life<=0) parts.splice(i,1); }
@@ -709,6 +712,8 @@ function drawSpikes(h){
     else { ctx.moveTo(x,h.y+h.h); ctx.lineTo(x+h.w/n,h.y+h.h); ctx.lineTo(x+h.w/(n*2),h.y); } }
   ctx.closePath(); ctx.fill();
   ctx.fillStyle='#3a4049'; ctx.fillRect(h.x,h.down?h.y-3:h.y+h.h,h.w,3);
+  if(h.flash>0){ ctx.fillStyle='rgba(255,70,60,'+(h.flash*1.4)+')';
+    ctx.fillRect(h.x-2,h.down?h.y-3:h.y-2,h.w+4,h.h+5); }
 }
 function drawSaw(h){
   const c=sawPos(h);
@@ -720,6 +725,8 @@ function drawSaw(h){
   ctx.closePath(); ctx.fill();
   ctx.fillStyle='#22262d'; ctx.beginPath(); ctx.arc(0,0,h.r*.42,0,7); ctx.fill();
   ctx.fillStyle='#ff5a4a'; ctx.beginPath(); ctx.arc(0,0,h.r*.2,0,7); ctx.fill();
+  if(h.flash>0){ ctx.fillStyle='rgba(255,60,50,'+(h.flash*.9)+')';
+    ctx.beginPath(); ctx.arc(0,0,h.r*1.4,0,7); ctx.fill(); }
   ctx.restore();
 }
 function drawLava(h){
@@ -729,6 +736,7 @@ function drawLava(h){
   ctx.lineTo(h.x+h.w,h.y+h.h); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#ffd35c';
   ctx.fillRect(h.x+2,h.y+2+Math.sin(time*2)*1,h.w-4,2);
+  if(h.flash>0){ ctx.fillStyle='rgba(255,70,60,'+(h.flash*1.2)+')'; ctx.fillRect(h.x-2,h.y-3,h.w+4,h.h+5); }
 }
 function drawSpider(s){
   const b=Math.sin(s.t+time*2)*2;
@@ -812,7 +820,6 @@ function drawRobot(c,ri,si,o){
   const g=o.gait||0, walking=!!o.walk, air=!!o.air, t=o.t||0;
   const sq=o.squash||0, look=o.look||0, lookY=o.lookY||0;
   c.save(); c.translate(o.x,o.y);
-  c.scale(o.face==null?1:(Math.abs(o.face)<.06?(o.face<0?-.06:.06):o.face),1);
 
   const bob=walking?Math.abs(Math.sin(g))*1.8:Math.sin(t*2)*.7;
   const hov=Math.sin(t*3.2)*2.4+Math.sin(t*1.7)*1.1+(air?-2.6:0)+clamp((o.vy||0)*.008,-3,3)-(o.jet||0)*2.5;
@@ -903,19 +910,18 @@ function drawHero(){
   else if(hero.distract>0){ er=4; ec='#9be3ff'; }
   else if(hero.lost){ er=2; ec='#ff9d6b'; }
   if(hero.blink>0) er=.8;
-  const FS=hero.faceAmt<0?-1:1;
   for(const gh of hero.trail){
     ctx.globalAlpha=clamp(gh.a,0,1)*.20;
-    drawRobot(ctx,rbI(),skI(),{x:gh.x,y:gh.y+hero.h/2,t:time,lean:gh.lean*FS,face:hero.faceAmt,
+    drawRobot(ctx,rbI(),skI(),{x:gh.x,y:gh.y+hero.h/2,t:time,lean:gh.lean,
       jet:gh.jet,er:0,ec:'rgba(0,0,0,0)',ghost:true});
   }
   ctx.globalAlpha=1;
   drawRobot(ctx,rbI(),skI(),{
     x:hero.x, y:hero.y+hero.h/2, gait:hero.gait,
     walk:hero.onGround&&Math.abs(hero.vx)>50, air:!hero.onGround,
-    t:time, squash:hero.squash, lean:hero.tilt*.11*FS, vy:hero.vy, face:hero.faceAmt,
-    jet:hero.thrust, fvx:clamp(hero.vx/SPEED,-1,1)*FS, pitch:clamp(-hero.vy/900,-.14,.14)*FS,
-    look:clamp((mouse.x-hero.x)/120,-1,1)*FS, lookY:clamp((mouse.y-hero.y)/120,-1,1),
+    t:time, squash:hero.squash, lean:hero.tilt*.11, vy:hero.vy,
+    jet:hero.thrust, fvx:clamp(hero.vx/SPEED,-1,1), pitch:clamp(-hero.vy/900,-.14,.14),
+    look:clamp((mouse.x-hero.x)/120,-1,1), lookY:clamp((mouse.y-hero.y)/120,-1,1),
     er:er, ec:ec, lost:hero.lost, shake:hero.scared>0?Math.sin(time*40)*1.2:0
   });
   // индикатор способности
@@ -1134,7 +1140,7 @@ function startLevel(n,keep){
   hero.tired=0;hero.distract=0;hero.scared=0;hero.bfCd=0;hero.jumpCd=0;hero.pushCd=0;
   hero.lost=0;hero.rideId=null;hero.emote=null;hero.say=null;
   hero.jet=FUEL;hero.jetOn=false;hero.jetVis=0;hero.thrust=0;hero.tilt=0;
-  hero.jetMin=0;hero.wantPrev=false;hero.spacePrev=false;hero.faceAmt=mouse.x>=hero.x?1:-1;
+  hero.jetMin=0;hero.wantPrev=false;hero.spacePrev=false;
   hero.trail.length=0;keys.space=false;
   $('btnPush').textContent=ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК';
   bfs.length=0;parts.length=0;shocks.length=0;bfTimer=2;
@@ -1266,9 +1272,8 @@ function drawPreview(){
   ptx.fillStyle='#413a33'; ptx.fillRect(18,116,194,12);
   ptx.fillStyle='#615247'; ptx.fillRect(18,116,194,4);
   ptx.save(); ptx.scale(1.85,1.85);
-  const pf=clamp(Math.cos(time*.75)*1.8,-1,1);
-  drawRobot(ptx,rbI(),skI(),{x:62,y:63,gait:time*7,walk:true,t:time,face:pf,
-    look:Math.sin(time*1.1)*(pf<0?-1:1),lookY:0,er:3.4,
+  drawRobot(ptx,rbI(),skI(),{x:62,y:63,gait:time*7,walk:true,t:time,
+    look:Math.sin(time*1.1),lookY:0,er:3.4,
     jet:.3+.3*Math.max(0,Math.sin(time*1.5)),lean:Math.sin(time*1.5)*.06});
   ptx.restore();
 }
