@@ -76,6 +76,31 @@ html,body{overscroll-behavior:none}
 .coSide{display:flex;gap:1.4em;align-items:center;justify-content:center}
 .coSide b{color:#ffd166}
 #coHost .screenblur{backdrop-filter:blur(6px)}
+#btnFs{display:none}
+.touch #btnFs{display:inline-block}
+.touch #hud{font-size:1.3em}
+.touch #hud>div{padding:.32em .95em;gap:.55em}
+.touch #hud button{padding:.28em .72em;font-size:1em;line-height:1.35}
+.touch #hint{font-size:1.15em;top:4.2em}
+.touch .screen button{padding:.6em 1.9em}
+.touch .screen button.big{padding:.55em 2.4em}
+.touch #grid{width:88%;gap:.45em}
+.touch #grid button{padding:.7em 0;font-size:1em}
+.touch #coSpec{font-size:1.15em}
+@media (max-height:470px){
+  .screen{gap:.35em}
+  h1{font-size:3.1em}
+  h2{font-size:1.65em}
+  .sub{font-size:.92em;line-height:1.35}
+  .helpbox{font-size:.88em;line-height:1.5;padding:.7em 1.1em}
+  #grid{max-height:46%;width:92%}
+  #prev,#coPrev{width:170px;height:111px}
+  #coCode{font-size:2.3em}
+  #coInput{font-size:1.9em}
+  .stats{font-size:.95em}
+  .screen button{padding:.42em 1.5em}
+  .screen button.big{font-size:1.35em;padding:.4em 1.9em}
+}
 </style>
 </head>
 <body>
@@ -84,7 +109,7 @@ html,body{overscroll-behavior:none}
 
   <div id="hud" class="hidden">
     <div><button id="btnMenu">☰</button><span id="hudLevel">Уровень 1</span><span id="hudCo"></span></div>
-    <div><span id="hudDeaths">💀 0</span><span id="hudTime">0:00</span><button id="btnSound">🔊</button><button id="btnRestart">⟳</button></div>
+    <div><span id="hudDeaths">💀 0</span><span id="hudTime">0:00</span><button id="btnFs">⛶</button><button id="btnSound">🔊</button><button id="btnRestart">⟳</button></div>
   </div>
   <div id="hint" class="hidden"></div>
   <button id="btnPush">ТОЛЧОК</button>
@@ -191,10 +216,14 @@ html,body{overscroll-behavior:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script>
 'use strict';
-const W=960,H=540;
+let W=960; const H=540;
+function fitW(){ const a=window.innerWidth/Math.max(1,window.innerHeight);
+  return Math.round(H*clampN(a,1.6,2.4)/2)*2; }
+function clampN(v,a,b){ return v<a?a:v>b?b:v; }
 const cv=document.getElementById('game'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
 const $=id=>document.getElementById(id);
+const bp=$('btnPush');
 
 // теневой холст для темноты
 const dcv=document.createElement('canvas'); dcv.width=W; dcv.height=H;
@@ -202,6 +231,7 @@ const dtx=dcv.getContext('2d');
 
 let scale=1;
 function fit(){
+  W=fitW(); cv.width=W; dcv.width=W;
   scale=Math.min(window.innerWidth/W, window.innerHeight/H);
   stage.style.width=(W*scale)+'px';
   stage.style.height=(H*scale)+'px';
@@ -210,7 +240,8 @@ function fit(){
     matchMedia('(pointer:coarse)').matches && window.innerHeight>window.innerWidth);
 }
 addEventListener('resize',fit); fit();
-if(matchMedia('(pointer:coarse)').matches) document.body.classList.add('touch');
+if(matchMedia('(pointer:coarse)').matches||('ontouchstart' in window)) document.body.classList.add('touch');
+addEventListener('touchstart',()=>document.body.classList.add('touch'),{once:true,passive:true});
 
 // ───────── утилиты ─────────
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -272,7 +303,7 @@ const isTouch=matchMedia('(pointer:coarse)').matches;
 function setPointer(cx,cy,touch){
   const r=cv.getBoundingClientRect();
   mouse.sx=clamp((cx-r.left)*(W/r.width),0,W);
-  mouse.sy=clamp((cy-r.top)*(H/r.height)-(touch?70:0),0,H);
+  mouse.sy=clamp((cy-r.top)*(H/r.height)-((touch&&state!=='wires')?84:0),0,H);
 }
 addEventListener('mousemove',e=>setPointer(e.clientX,e.clientY));
 addEventListener('mousedown',e=>{ if(e.button!==0) return; setPointer(e.clientX,e.clientY);
@@ -284,6 +315,7 @@ addEventListener('touchstart',e=>{ const t=e.touches[0]; if(!t)return; setPointe
   if(state==='wires'){ wireDown(); e.preventDefault(); return; }
   if(e.target===cv) e.preventDefault(); },{passive:false});
 addEventListener('touchmove',e=>{ const t=e.touches[0]; if(!t)return; setPointer(t.clientX,t.clientY,1);
+  if(state==='wires'){ e.preventDefault(); return; }
   if(e.target===cv) e.preventDefault(); },{passive:false});
 $('btnPush').addEventListener('pointerdown',e=>{ e.preventDefault();
   const RK=ROBOTS[rbI()]; keys.space=true; keys.spaceHit=true; if(!RK.fly) doPush(); });
@@ -1475,6 +1507,15 @@ $('btnRestart').onclick=()=>{ spawnPt=null; startLevel(cur); };
 $('btnReset').onclick=()=>{ if(confirm('Стереть весь прогресс?')){
   save={unlocked:1,done:{},best:{},stars:{},sound:SND,robot:save.robot|0,skin:save.skin|0}; persist(); cloudPush(); buildGrid(); } };
 function toggleSound(){ SND=!SND; save.sound=SND; persist(); $('btnSound').textContent=SND?'🔊':'🔇'; }
+$('btnFs').onclick=()=>{
+  const d=document, el=d.documentElement;
+  try{
+    if(!d.fullscreenElement&&!d.webkitFullscreenElement){
+      (el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen).call(el);
+    } else { (d.exitFullscreen||d.webkitExitFullscreen).call(d); }
+  }catch(e){}
+  setTimeout(fit,300);
+};
 $('btnSound').onclick=toggleSound;
 $('btnSound').textContent=SND?'🔊':'🔇';
 
@@ -1517,7 +1558,8 @@ function drawEnding(){
 // ───────── щиток: соедини провода ─────────
 const WCOL=['#d8342e','#e8c93a','#2f4fd8','#d63ab0'];
 const WDARK=['#8a1c18','#9a8420','#1c2f8a','#8a2170'];
-const WP={x:W/2-215,y:H/2-152,w:430,h:304};
+const WP={x:265,y:118,w:430,h:304};
+function wpFit(){ WP.x=Math.round(W/2-WP.w/2); WP.y=Math.round(H/2-WP.h/2); }
 const wLY=i=>WP.y+80+i*56;
 const wLX=sd=>sd?WP.x+WP.w-56:WP.x+56;
 let wires=null;
@@ -1536,6 +1578,7 @@ function closeWires(fixed){
     if(!playFile('sfx/checkpoint',1,.6)) tone(500,1000,.25,'triangle',.07); }
 }
 function wireNode(sx,sy){
+  wpFit();
   for(let i=0;i<4;i++){
     if(Math.hypot(sx-wLX(0),sy-wLY(i))<30) return {side:0,i};
     if(Math.hypot(sx-wLX(1),sy-wLY(i))<30) return {side:1,i};
@@ -1598,6 +1641,7 @@ function terminal(sd,i,ci){
 }
 function drawWires(){
   if(!wires) return;
+  wpFit();
   if(wires.doneAt&&performance.now()-wires.doneAt>500){ closeWires(true); return; }
   ctx.fillStyle='rgba(4,6,12,.88)'; ctx.fillRect(0,0,W,H);
   const g=ctx.createLinearGradient(0,WP.y,0,WP.y+WP.h);
@@ -1823,6 +1867,8 @@ function frame(now){
   ctx.save(); ctx.translate(-cam.x,0); drawGlows(); ctx.restore();
   if(state!=='wires') drawCursor();
   if(state==='play') drawOverlay();
+  const pv=(state==='play')?'visible':'hidden';
+  if(bp.style.visibility!==pv) bp.style.visibility=pv;
   if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
   if(!$('coPick').classList.contains('hidden')) drawCoPrev();
