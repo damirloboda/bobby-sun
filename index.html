@@ -696,7 +696,7 @@ function drawNote(nt){
 // ───────── роботы и скины ─────────
 const ROBOTS=[
   {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna'},
-  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt'}
+  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt',fly:true}
 ];
 const SKINS=[
   {name:'Классик',body:'#c3ccd8',trim:'#9aa5b4',line:'#2b3340',eye:'#ffd9a0'},
@@ -716,24 +716,40 @@ function drawRobot(c,ri,si,o){
   const sq=o.squash||0, look=o.look||0, lookY=o.lookY||0;
   c.save(); c.translate(o.x,o.y);
 
-  // ноги — настоящий шаговый цикл: вынос вперёд, подъём, опора
-  const stride=walking?7:0, lift=walking?5.5:0;
-  for(let i=0;i<2;i++){
-    const p=g+i*Math.PI;
-    let fx=walking?Math.sin(p)*stride:0;
-    let fy=walking?Math.max(0,Math.cos(p))*lift:0;
-    if(air){ fx=i?4:-5; fy=i?5.5:2; }
-    const lx=(i?1.5:-7.5)+fx;
-    c.fillStyle=S.trim; rr(c,lx,-10,6,7.5-fy*.5,2.5); c.fill();
-    c.fillStyle=S.line;  rr(c,lx-1.8,-3.5-fy,9.5,3.5,1.6); c.fill();
+  const bob=walking?Math.abs(Math.sin(g))*1.8:Math.sin(t*2)*.7;
+  const hov=Math.sin(t*3.2)*2.4+Math.sin(t*1.7)*1.1+(air?-2.6:0);
+  const thr=.5+.5*Math.abs(Math.sin(t*19))*(walking||air?1:.55);
+
+  if(!R.fly){
+    // ноги — шаговый цикл: вынос вперёд, подъём, опора
+    const stride=walking?7:0, lift=walking?5.5:0;
+    for(let i=0;i<2;i++){
+      const p=g+i*Math.PI;
+      let fx=walking?Math.sin(p)*stride:0;
+      let fy=walking?Math.max(0,Math.cos(p))*lift:0;
+      if(air){ fx=i?4:-5; fy=i?5.5:2; }
+      const lx=(i?1.5:-7.5)+fx;
+      c.fillStyle=S.trim; rr(c,lx,-10,6,7.5-fy*.5,2.5); c.fill();
+      c.fillStyle=S.line;  rr(c,lx-1.8,-3.5-fy,9.5,3.5,1.6); c.fill();
+    }
+  } else {
+    // антиграв: пятно света на земле, столб тяги и мерцающая дюза
+    c.fillStyle='rgba(150,215,255,'+(.14*thr)+')';
+    c.beginPath(); c.ellipse(0,-1,16+thr*3,4.5,0,0,7); c.fill();
+    const jg=c.createRadialGradient(0,-11,0,0,-11,22);
+    jg.addColorStop(0,'rgba(160,220,255,'+(.55*thr)+')');
+    jg.addColorStop(.45,'rgba(120,190,255,'+(.22*thr)+')');
+    jg.addColorStop(1,'rgba(120,190,255,0)');
+    c.fillStyle=jg; c.beginPath(); c.ellipse(0,-11,15,12,0,0,7); c.fill();
+    c.fillStyle='rgba(215,245,255,'+(.75*thr)+')';
+    c.beginPath(); c.ellipse(0,-14-hov*.35,7,3.4,0,0,7); c.fill();
   }
 
-  // корпус — покачивание в такт шагам и наклон в сторону движения
-  const bob=walking?Math.abs(Math.sin(g))*1.8:Math.sin(t*2)*.7;
+  // корпус — покачивание и наклон в сторону движения
   c.save();
-  c.translate(0,-9+bob);
+  c.translate(0,R.fly?(-18-hov):(-9+bob));
   c.scale(1+sq*.2,1-sq*.24);
-  c.rotate(clamp(o.lean||0,-.13,.13));
+  c.rotate(R.fly?clamp((o.lean||0)*2.1,-.30,.30):clamp(o.lean||0,-.13,.13));
   c.fillStyle=S.body; rr(c,-bw/2,-bh,bw,bh,R.r); c.fill();
   c.fillStyle=S.trim; rr(c,-bw/2,-bh*.30,bw,5.5,2.5); c.fill();
   c.strokeStyle=S.line; c.lineWidth=2; rr(c,-bw/2,-bh,bw,bh,R.r); c.stroke();
@@ -752,6 +768,11 @@ function drawRobot(c,ri,si,o){
     c.fillStyle=S.trim;
     rr(c,-bw/2-3.5,-bh*.70,4,8,2); c.fill();
     rr(c,bw/2-.5,-bh*.70,4,8,2); c.fill();
+    if(R.fly){
+      c.fillStyle='rgba(170,225,255,'+(.7*thr)+')';
+      rr(c,-bw/2-3,-bh*.70+8,3,3+thr*2.5,1.4); c.fill();
+      rr(c,bw/2,-bh*.70+8,3,3+thr*2.5,1.4); c.fill();
+    }
   }
 
   c.fillStyle='#151b27'; rr(c,-bw/2+3,-bh+4.5,bw-6,bh*.5,5); c.fill();
@@ -870,6 +891,8 @@ function drawGlows(){
   if(L.note) glow(L.note.x,L.note.y-16,40,'rgba(110,180,255,%A%)',.32);
   glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,70,'rgba(110,255,150,%A%)',.30);
   glow(hero.x,hero.y-8,46,'rgba(255,210,150,%A%)',.16);
+  if(ROBOTS[rbI()].fly&&hero.dead<=0)
+    glow(hero.x,hero.y+hero.h/2-8,38,'rgba(130,205,255,%A%)',.30);
   ctx.restore();
 }
 function drawCursor(){
