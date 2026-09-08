@@ -12,7 +12,7 @@ html,body{height:100%;background:#0b1029;overflow:hidden;
   -webkit-user-select:none;user-select:none;touch-action:none}
 #app{height:100%;display:flex;align-items:center;justify-content:center}
 #stage{position:relative;overflow:hidden;border-radius:16px;box-shadow:0 20px 70px rgba(0,0,0,.6)}
-canvas{display:block;width:100%;height:100%;cursor:none}
+#game{display:block;width:100%;height:100%;cursor:none}
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.7em;
   background:linear-gradient(165deg,rgba(11,16,41,.82),rgba(38,20,66,.88));z-index:5;text-align:center;color:#fff}
 .hidden{display:none!important}
@@ -57,6 +57,10 @@ button.ghost:hover{color:#fff;transform:none;box-shadow:none}
 @keyframes rot{0%,55%,100%{transform:rotate(0)}28%{transform:rotate(90deg)}}
 body.portrait #rotate{display:flex}
 html,body{overscroll-behavior:none}
+#prev{border-radius:.8em;background:#0d1220;box-shadow:0 .2em 0 rgba(0,0,0,.45)}
+.sw{width:2.3em;height:2.3em;padding:0;border-radius:50%;box-shadow:0 .15em 0 rgba(0,0,0,.5)}
+.sw.on{outline:3px solid #ffd166;outline-offset:2px}
+#skins .row button.on{background:#7ee081;box-shadow:0 .25em 0 #46a04c}
 </style>
 </head>
 <body>
@@ -74,7 +78,7 @@ html,body{overscroll-behavior:none}
     <h1>БОББИ<br><span style="font-size:.52em">ищет солнце</span></h1>
     <p class="sub">Бобби идёт туда, где твоя мышь.<br>Бобби не смотрит под ноги.<br><span class="tiny">Ты его бог. Ты его единственная надежда.</span></p>
     <button class="big" id="btnPlay">ИГРАТЬ</button>
-    <div class="row"><button id="btnLevels">УРОВНИ</button><button id="btnHelp">КАК ИГРАТЬ</button></div>
+    <div class="row"><button id="btnLevels">УРОВНИ</button><button id="btnSkins">РОБОТ</button><button id="btnHelp">КАК ИГРАТЬ</button></div>
     <button id="btnAuth">Войти через Google</button>
     <button id="btnReset" class="ghost">сбросить прогресс</button>
     <div id="cloudTag" class="tiny" style="opacity:.6">💾 прогресс сохраняется в этом браузере</div>
@@ -97,6 +101,14 @@ html,body{overscroll-behavior:none}
       <span class="tiny">Бобби слеп к опасностям, залипает на бабочках,<br>устаёт от долгой ходьбы и панически боится пауков.</span>
     </div>
     <button id="btnBack2">ПОНЯЛ</button>
+  </div>
+
+  <div id="skins" class="screen hidden">
+    <h2>РОБОТ</h2>
+    <canvas id="prev" width="230" height="150"></canvas>
+    <div class="row" id="robotRow"></div>
+    <div class="row" id="skinRow"></div>
+    <button id="btnBack4">ГОТОВО</button>
   </div>
 
   <div id="win" class="screen hidden">
@@ -179,7 +191,7 @@ const sfx={
 
 // ───────── сохранение ─────────
 const SKEY='tupitsa_save_v1';
-let save={unlocked:1,done:{},best:{},sound:true};
+let save={unlocked:1,done:{},best:{},stars:{},sound:true,robot:0,skin:0};
 try{const s=JSON.parse(localStorage.getItem(SKEY)); if(s)save=Object.assign(save,s);}catch(e){}
 SND=save.sound!==false;
 function persist(){ try{localStorage.setItem(SKEY,JSON.stringify(save));}catch(e){} }
@@ -329,7 +341,7 @@ let state='menu', cur=1, L=null, time=0, lvlTime=0, lvlDeaths=0;
 let cam={x:0}, parts=[], bfs=[], shocks=[], motes=[];
 const hero={x:0,y:0,vx:0,vy:0,w:26,h:30,onGround:false,blocked:false,face:1,
   airTime:0,squash:0,walked:0,tired:0,distract:0,scared:0,bfCd:0,jumpCd:0,pushCd:0,
-  dead:0,blink:0,lost:0,step:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
+  dead:0,blink:0,lost:0,step:0,gait:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
 
 const heroBox=()=>({x:hero.x-hero.w/2,y:hero.y-hero.h/2,w:hero.w,h:hero.h});
 function say(text,dur){ hero.say={text,t:dur||1.8,max:dur||1.8}; }
@@ -346,7 +358,7 @@ function startLevel(n,keepStats){
   if(!keepStats){ lvlTime=0; lvlDeaths=0; }
   state='play';
   $('hud').classList.remove('hidden');
-  ['menu','levels','help','win'].forEach(i=>$(i).classList.add('hidden'));
+  ['menu','levels','help','win','skins'].forEach(i=>$(i).classList.add('hidden'));
   showHint(L.hint);
   updateHud();
   if(n===1||INTRO[n]) say('СВЕТ ЕСТЬ. ИДУ.',2.2);
@@ -391,6 +403,7 @@ function think(dt){
   hero.scared=Math.max(0,hero.scared-dt);
   hero.bfCd=Math.max(0,hero.bfCd-dt);
   hero.squash=lerp(hero.squash,0,Math.min(1,10*dt));
+  if(hero.onGround&&Math.abs(hero.vx)>25) hero.gait+=Math.abs(hero.vx)*dt/13;
   if(hero.blink>0)hero.blink-=dt; else if(Math.random()<.005)hero.blink=.13;
   if(hero.say){ hero.say.t-=dt; if(hero.say.t<=0)hero.say=null; }
   if(hero.emote){ hero.emote.t+=dt; if(hero.emote.t>1.6)hero.emote=null; }
@@ -680,40 +693,95 @@ function drawNote(nt){
   rr(ctx,nt.x-8,nt.y-23,16,15,2); ctx.fill();
   ctx.fillStyle='#0d1622'; ctx.fillRect(nt.x-6,nt.y-20,12,1.6); ctx.fillRect(nt.x-6,nt.y-16,9,1.6);
 }
+// ───────── роботы и скины ─────────
+const ROBOTS=[
+  {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna'},
+  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt'}
+];
+const SKINS=[
+  {name:'Классик',body:'#c3ccd8',trim:'#9aa5b4',line:'#2b3340',eye:'#ffd9a0'},
+  {name:'Ржавый', body:'#c9835a',trim:'#9a5f3d',line:'#3a2018',eye:'#ffcf7a'},
+  {name:'Мятный', body:'#9fd8c3',trim:'#74b09b',line:'#1f3a33',eye:'#c8fff0'},
+  {name:'Ночной', body:'#525f8c',trim:'#39456b',line:'#161d33',eye:'#7fe3ff'},
+  {name:'Золотой',body:'#e8c268',trim:'#b5924a',line:'#3a2c10',eye:'#fff2c4'},
+  {name:'Вишня',  body:'#e0879b',trim:'#b26178',line:'#3d1c27',eye:'#fff0f4'}
+];
+const rbI=()=>clamp(save.robot|0,0,ROBOTS.length-1);
+const skI=()=>clamp(save.skin|0,0,SKINS.length-1);
+
+function drawRobot(c,ri,si,o){
+  const R=ROBOTS[ri]||ROBOTS[0], S=SKINS[si]||SKINS[0];
+  const bw=R.bw, bh=R.bh;
+  const g=o.gait||0, walking=!!o.walk, air=!!o.air, t=o.t||0;
+  const sq=o.squash||0, look=o.look||0, lookY=o.lookY||0;
+  c.save(); c.translate(o.x,o.y);
+
+  // ноги — настоящий шаговый цикл: вынос вперёд, подъём, опора
+  const stride=walking?7:0, lift=walking?5.5:0;
+  for(let i=0;i<2;i++){
+    const p=g+i*Math.PI;
+    let fx=walking?Math.sin(p)*stride:0;
+    let fy=walking?Math.max(0,Math.cos(p))*lift:0;
+    if(air){ fx=i?4:-5; fy=i?5.5:2; }
+    const lx=(i?1.5:-7.5)+fx;
+    c.fillStyle=S.trim; rr(c,lx,-10,6,7.5-fy*.5,2.5); c.fill();
+    c.fillStyle=S.line;  rr(c,lx-1.8,-3.5-fy,9.5,3.5,1.6); c.fill();
+  }
+
+  // корпус — покачивание в такт шагам и наклон в сторону движения
+  const bob=walking?Math.abs(Math.sin(g))*1.8:Math.sin(t*2)*.7;
+  c.save();
+  c.translate(0,-9+bob);
+  c.scale(1+sq*.2,1-sq*.24);
+  c.rotate(clamp(o.lean||0,-.13,.13));
+  c.fillStyle=S.body; rr(c,-bw/2,-bh,bw,bh,R.r); c.fill();
+  c.fillStyle=S.trim; rr(c,-bw/2,-bh*.30,bw,5.5,2.5); c.fill();
+  c.strokeStyle=S.line; c.lineWidth=2; rr(c,-bw/2,-bh,bw,bh,R.r); c.stroke();
+
+  if(R.top==='antenna'){
+    const ab=Math.sin(t*4)*2+(walking?Math.sin(g)*1.6:0);
+    c.strokeStyle=S.trim; c.lineWidth=2;
+    c.beginPath(); c.moveTo(0,-bh); c.lineTo(ab,-bh-9); c.stroke();
+    c.fillStyle=o.lost?'#ff6b6b':'#ffd166';
+    c.beginPath(); c.arc(ab,-bh-11,2.6,0,7); c.fill();
+  } else {
+    c.fillStyle=S.trim; rr(c,-4.5,-bh-5,9,5,2); c.fill();
+    c.strokeStyle=S.line; c.lineWidth=1.6; rr(c,-4.5,-bh-5,9,5,2); c.stroke();
+    c.fillStyle=o.lost?'#ff6b6b':'#ffd166';
+    c.beginPath(); c.arc(0,-bh-7.6,2.2,0,7); c.fill();
+    c.fillStyle=S.trim;
+    rr(c,-bw/2-3.5,-bh*.70,4,8,2); c.fill();
+    rr(c,bw/2-.5,-bh*.70,4,8,2); c.fill();
+  }
+
+  c.fillStyle='#151b27'; rr(c,-bw/2+3,-bh+4.5,bw-6,bh*.5,5); c.fill();
+  const ey=-bh+4.5+bh*.25+lookY*2, er=o.er==null?3.4:o.er;
+  c.fillStyle=o.ec||S.eye;
+  if(R.eyes===1){
+    c.beginPath(); c.arc(look*4+(o.shake||0),ey,er,0,7); c.fill();
+  } else {
+    const dx=look*2.6+(o.shake||0);
+    c.beginPath(); c.arc(-5.5+dx,ey,er*.82,0,7); c.fill();
+    c.beginPath(); c.arc(5.5+dx,ey,er*.82,0,7); c.fill();
+  }
+  c.restore(); c.restore();
+}
+
 function drawHero(){
   if(hero.dead>0) return;
-  const sq=hero.squash;
-  const sx=1+sq*.22, sy=1-sq*.26;
-  ctx.save(); ctx.translate(hero.x,hero.y+hero.h/2); ctx.scale(sx,sy);
-  const bw=hero.w, bh=hero.h;
-  const walk=hero.onGround&&Math.abs(hero.vx)>60;
-  const st=Math.sin(time*15);
-  // ноги
-  ctx.fillStyle='#5b6472';
-  ctx.fillRect(-8,-6,6,7+(walk?st*2:0)); ctx.fillRect(2,-6,6,7-(walk?st*2:0));
-  // корпус
-  ctx.fillStyle='#c3ccd8'; rr(ctx,-bw/2,-bh,bw,bh-4,7); ctx.fill();
-  ctx.fillStyle='#9aa5b4'; rr(ctx,-bw/2,-bh+bh*.62,bw,7,3); ctx.fill();
-  ctx.strokeStyle='#2b3340'; ctx.lineWidth=2; rr(ctx,-bw/2,-bh,bw,bh-4,7); ctx.stroke();
-  // антенна
-  const ab=Math.sin(time*4)*2;
-  ctx.strokeStyle='#8e99a8'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(0,-bh); ctx.lineTo(ab,-bh-9); ctx.stroke();
-  ctx.fillStyle=hero.lost?'#ff6b6b':'#ffd166';
-  ctx.beginPath(); ctx.arc(ab,-bh-11,2.6,0,7); ctx.fill();
-  // визор + глаз
-  ctx.fillStyle='#1b2230'; rr(ctx,-bw/2+3,-bh+5,bw-6,12,5); ctx.fill();
-  const look=clamp((mouse.x-hero.x)/120,-1,1), lookY=clamp((mouse.y-hero.y)/120,-1,1);
-  let er=3.4, ec='#ffd9a0';
+  let er=3.4, ec=null;
   if(hero.scared>0){ er=2.2; ec='#ff8b8b'; }
   else if(hero.tired>0){ er=1.6; ec='#ffb46b'; }
   else if(hero.distract>0){ er=4; ec='#9be3ff'; }
   else if(hero.lost){ er=2; ec='#ff9d6b'; }
   if(hero.blink>0) er=.8;
-  const shake=hero.scared>0?Math.sin(time*40)*1.2:0;
-  ctx.fillStyle=ec;
-  ctx.beginPath(); ctx.arc(look*4+shake,-bh+11+lookY*2,er,0,7); ctx.fill();
-  ctx.restore();
+  drawRobot(ctx,rbI(),skI(),{
+    x:hero.x, y:hero.y+hero.h/2, gait:hero.gait,
+    walk:hero.onGround&&Math.abs(hero.vx)>50, air:!hero.onGround,
+    t:time, squash:hero.squash, lean:clamp(hero.vx/SPEED*.11,-.13,.13),
+    look:clamp((mouse.x-hero.x)/120,-1,1), lookY:clamp((mouse.y-hero.y)/120,-1,1),
+    er:er, ec:ec, lost:hero.lost, shake:hero.scared>0?Math.sin(time*40)*1.2:0
+  });
   // облачко
   if(hero.say){
     const t=hero.say.text; ctx.font='700 12px "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
@@ -730,6 +798,7 @@ function drawHero(){
     ctx.fillText(m,hero.x,y);
   }
 }
+
 function drawWorld(){
   if(L.lavaFloor){ const y=H-26;
     ctx.fillStyle='#ff7a1f'; ctx.beginPath(); ctx.moveTo(cam.x-20,H);
@@ -978,7 +1047,7 @@ function showMenu(){
   hero.x=L.start.x; hero.y=L.start.y; hero.vx=0; hero.vy=0; hero.say=null; hero.lost=0;
   cam.x=0; bfs.length=0;
   $('hud').classList.add('hidden'); $('hint').classList.add('hidden');
-  ['levels','help','win'].forEach(i=>$(i).classList.add('hidden'));
+  ['levels','help','win','skins'].forEach(i=>$(i).classList.add('hidden'));
   $('menu').classList.remove('hidden');
 }
 function buildGrid(){
@@ -1006,10 +1075,38 @@ $('btnBack2').onclick=()=>{ $('help').classList.add('hidden'); $('menu').classLi
 $('btnBack3').onclick=()=>{ buildGrid(); $('win').classList.add('hidden'); $('levels').classList.remove('hidden'); state='menu'; };
 $('btnNext').onclick=()=>{ spawnPt=null; startLevel(Math.min(100,cur+1)); };
 $('btnAgain').onclick=()=>{ spawnPt=null; startLevel(cur); };
+function buildSkins(){
+  const rw=$('robotRow'), sw=$('skinRow');
+  rw.innerHTML=''; sw.innerHTML='';
+  ROBOTS.forEach((r,i)=>{ const b=document.createElement('button');
+    b.textContent=r.name; if(i===rbI()) b.className='on';
+    b.onclick=()=>{ save.robot=i; persist(); cloudPush(); buildSkins(); };
+    rw.appendChild(b); });
+  SKINS.forEach((k,i)=>{ const b=document.createElement('button');
+    b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=k.name;
+    b.onclick=()=>{ save.skin=i; persist(); cloudPush(); buildSkins(); };
+    sw.appendChild(b); });
+}
+const pcv=$('prev'), ptx=pcv?pcv.getContext('2d'):null;
+function drawPreview(){
+  if(!ptx) return;
+  ptx.fillStyle='#0d1220'; ptx.fillRect(0,0,pcv.width,pcv.height);
+  const g=ptx.createRadialGradient(115,86,0,115,86,95);
+  g.addColorStop(0,'rgba(255,205,140,.30)'); g.addColorStop(1,'rgba(255,205,140,0)');
+  ptx.fillStyle=g; ptx.fillRect(0,0,pcv.width,pcv.height);
+  ptx.fillStyle='#413a33'; ptx.fillRect(18,116,194,12);
+  ptx.fillStyle='#615247'; ptx.fillRect(18,116,194,4);
+  ptx.save(); ptx.scale(1.85,1.85);
+  drawRobot(ptx,rbI(),skI(),{x:62,y:63,gait:time*7,walk:true,t:time,
+    look:Math.sin(time*1.1),lookY:0,er:3.4});
+  ptx.restore();
+}
+$('btnSkins').onclick=()=>{ buildSkins(); $('menu').classList.add('hidden'); $('skins').classList.remove('hidden'); };
+$('btnBack4').onclick=()=>{ $('skins').classList.add('hidden'); $('menu').classList.remove('hidden'); };
 $('btnMenu').onclick=showMenu;
 $('btnRestart').onclick=()=>{ spawnPt=null; startLevel(cur); };
 $('btnReset').onclick=()=>{ if(confirm('Стереть весь прогресс?')){
-  save={unlocked:1,done:{},best:{},stars:{},sound:SND}; persist(); cloudPush(); buildGrid(); } };
+  save={unlocked:1,done:{},best:{},stars:{},sound:SND,robot:save.robot|0,skin:save.skin|0}; persist(); cloudPush(); buildGrid(); } };
 function toggleSound(){ SND=!SND; save.sound=SND; persist(); $('btnSound').textContent=SND?'🔊':'🔇'; }
 $('btnSound').onclick=toggleSound;
 $('btnSound').textContent=SND?'🔊':'🔇';
@@ -1084,12 +1181,13 @@ function frame(now){
   ctx.save(); ctx.translate(-cam.x,0); drawGlows(); ctx.restore();
   drawCursor();
   if(state==='play') drawOverlay();
+  if(!$('skins').classList.contains('hidden')) drawPreview();
   requestAnimationFrame(frame);
 }
 // ── сохранение в аккаунт (работает в опубликованной версии) ──
 let cloudDoc=null,cloudBusy=false,saveHook=null;
 window.BOBBY={
-  getSave:()=>({unlocked:save.unlocked,done:save.done||{},stars:save.stars||{},t:Date.now()}),
+  getSave:()=>({unlocked:save.unlocked,done:save.done||{},stars:save.stars||{},robot:save.robot|0,skin:save.skin|0,t:Date.now()}),
   applyRemote:r=>{ mergeSave(r); if(!$('levels').classList.contains('hidden')) buildGrid(); },
   onChange:f=>{ saveHook=f; }
 };
@@ -1100,13 +1198,15 @@ function mergeSave(r){
   save.stars=save.stars||{};
   const rs=r.stars||{};
   for(const k in rs) save.stars[k]=Math.max(save.stars[k]||0,rs[k]||0);
+  if(typeof r.robot==='number') save.robot=r.robot;
+  if(typeof r.skin==='number') save.skin=r.skin;
   persist();
 }
 function cloudPush(){
   if(saveHook){ try{ saveHook(); }catch(e){} }
   if(!cloudDoc||cloudBusy) return;
   cloudBusy=true;
-  cloudDoc.set({unlocked:save.unlocked,done:save.done,stars:save.stars||{},t:Date.now()})
+  cloudDoc.set({unlocked:save.unlocked,done:save.done,stars:save.stars||{},robot:save.robot|0,skin:save.skin|0,t:Date.now()})
     .catch(()=>{}).then(()=>{cloudBusy=false;});
 }
 async function initCloud(){
