@@ -61,6 +61,21 @@ html,body{overscroll-behavior:none}
 .sw{width:2.3em;height:2.3em;padding:0;border-radius:50%;box-shadow:0 .15em 0 rgba(0,0,0,.5)}
 .sw.on{outline:3px solid #ffd166;outline-offset:2px}
 #skins .row button.on{background:#7ee081;box-shadow:0 .25em 0 #46a04c}
+#coCode{font-size:3.4em;letter-spacing:.28em;color:#7ee081;font-weight:700;
+  background:rgba(0,0,0,.3);padding:.15em .3em .15em .45em;border-radius:.25em;
+  text-shadow:0 .04em 0 #2f7a3a}
+#coInput{font:inherit;font-size:2.6em;letter-spacing:.25em;text-align:center;width:5em;
+  text-transform:uppercase;background:rgba(0,0,0,.35);color:#ffd166;border:3px solid #3d4759;
+  border-radius:.25em;padding:.1em .1em .1em .25em;outline:none}
+#coInput:focus{border-color:#ffd166}
+#coPrev{border-radius:.8em;background:#0d1220;box-shadow:0 .2em 0 rgba(0,0,0,.45)}
+#coSpec{position:absolute;left:50%;bottom:1.2em;transform:translateX(-50%);z-index:4;
+  background:rgba(11,16,41,.8);color:#9be3ff;padding:.4em 1.2em;border-radius:999px;
+  font-size:.95em;pointer-events:none;backdrop-filter:blur(4px)}
+#hudCo{color:#7ee081}
+.coSide{display:flex;gap:1.4em;align-items:center;justify-content:center}
+.coSide b{color:#ffd166}
+#coHost .screenblur{backdrop-filter:blur(6px)}
 </style>
 </head>
 <body>
@@ -68,16 +83,18 @@ html,body{overscroll-behavior:none}
   <canvas id="game" width="960" height="540"></canvas>
 
   <div id="hud" class="hidden">
-    <div><button id="btnMenu">☰</button><span id="hudLevel">Уровень 1</span></div>
+    <div><button id="btnMenu">☰</button><span id="hudLevel">Уровень 1</span><span id="hudCo"></span></div>
     <div><span id="hudDeaths">💀 0</span><span id="hudTime">0:00</span><button id="btnSound">🔊</button><button id="btnRestart">⟳</button></div>
   </div>
   <div id="hint" class="hidden"></div>
   <button id="btnPush">ТОЛЧОК</button>
+  <div id="coSpec" class="hidden">смотришь за другом · Esc — назад</div>
 
   <div id="menu" class="screen">
     <h1>БОББИ<br><span style="font-size:.52em">ищет солнце</span></h1>
     <p class="sub">Бобби идёт туда, где твоя мышь.<br>Бобби не смотрит под ноги.<br><span class="tiny">Ты его бог. Ты его единственная надежда.</span></p>
     <button class="big" id="btnPlay">ИГРАТЬ</button>
+    <button id="btnCo">ИГРАТЬ ВДВОЁМ</button>
     <div class="row"><button id="btnLevels">УРОВНИ</button><button id="btnSkins">РОБОТ</button><button id="btnHelp">КАК ИГРАТЬ</button></div>
     <button id="btnAuth">Войти через Google</button>
     <button id="btnReset" class="ghost">сбросить прогресс</button>
@@ -99,6 +116,7 @@ html,body{overscroll-behavior:none}
       &nbsp;&nbsp;&nbsp;Кликни <b>под ним</b> — подбросишь вверх.<br>
       <b>Пробел</b> — способность робота. У каждого своя, попробуй всех троих.<br>
       <b>E</b> — починить щиток у запертой двери.<br>
+      <b>Вдвоём:</b> каждый ведёт своего робота и видит чужого, только посветив на него.<br>
       <b>Esc</b> — пауза, <b>R</b> — заново, <b>S</b> — звук.<br>
       <span class="tiny">Бобби слеп к опасностям, залипает на бабочках,<br>устаёт от долгой ходьбы и панически боится пауков.</span>
     </div>
@@ -111,6 +129,45 @@ html,body{overscroll-behavior:none}
     <div class="row" id="robotRow"></div>
     <div class="row" id="skinRow"></div>
     <button id="btnBack4">ГОТОВО</button>
+  </div>
+
+  <div id="co" class="screen hidden">
+    <h2>ИГРАТЬ ВДВОЁМ</h2>
+    <p class="sub">Двое ведут своих роботов по одному уровню.<br>Каждый светит только своему.</p>
+    <button class="big" id="btnCoHost">СОЗДАТЬ ЛОББИ</button>
+    <button id="btnCoJoinScr">ВВЕСТИ КОД</button>
+    <button id="btnCoBack" class="ghost">назад</button>
+    <p class="tiny" id="coErr"></p>
+  </div>
+
+  <div id="coHost" class="screen hidden">
+    <h2>КОД ЛОББИ</h2>
+    <div id="coCode">····</div>
+    <p class="sub">Скажи этот код другу<br><span class="tiny" id="coHostMsg">ждём второго игрока...</span></p>
+    <button id="btnCoCancel" class="ghost">отмена</button>
+  </div>
+
+  <div id="coJoin" class="screen hidden">
+    <h2>ВВЕДИ КОД</h2>
+    <input id="coInput" maxlength="4" autocomplete="off" spellcheck="false">
+    <button class="big" id="btnCoConnect">ПОДКЛЮЧИТЬСЯ</button>
+    <button id="btnCoBack2" class="ghost">назад</button>
+    <p class="tiny" id="coErr2"></p>
+  </div>
+
+  <div id="coPick" class="screen hidden">
+    <h2>ВЫБЕРИ РОБОТА</h2>
+    <canvas id="coPrev" width="230" height="150"></canvas>
+    <div class="row" id="coRobots"></div>
+    <div class="row" id="coSkins"></div>
+    <p class="sub coSide"><span>ты: <b id="coMe">—</b></span><span>друг: <b id="coThem">выбирает...</b></span></p>
+    <button class="big" id="btnCoReady">ГОТОВ</button>
+  </div>
+
+  <div id="coWait" class="screen hidden">
+    <h2>УРОВЕНЬ ПРОЙДЕН</h2>
+    <p class="sub" id="coWaitMsg">Ждём друга.</p>
+    <button class="big" id="btnSpec">СМОТРЕТЬ ЗА ДРУГОМ</button>
   </div>
 
   <div id="pause" class="screen hidden">
@@ -131,6 +188,7 @@ html,body{overscroll-behavior:none}
   </div>
 </div></div>
 <div id="rotate"><div class="ic">📱</div><b>Поверни телефон</b><span>игра работает горизонтально</span></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script>
 'use strict';
 const W=960,H=540;
@@ -237,7 +295,8 @@ addEventListener('keydown',e=>{
   if(k==='e'||k==='у'){ keys.eHit=true; }
   if(k==='r'||k==='к'){ if(state==='play'||state==='paused'){ spawnPt=null; startLevel(cur); } }
   if(k==='escape'){ e.preventDefault();
-    if(!$('skins').classList.contains('hidden')){ $('btnBack4').click(); }
+    if(net.on&&net.spectate){ coSpectate(false); }
+    else if(!$('skins').classList.contains('hidden')){ $('btnBack4').click(); }
     else if(state==='wires') closeWires(false);
     else if(state==='play') pauseGame();
     else if(state==='paused') resumeGame();
@@ -381,7 +440,7 @@ function startLevel(n,keepStats){
   if(!keepStats){ lvlTime=0; lvlDeaths=0; }
   state='play';
   $('hud').classList.remove('hidden');
-  ['menu','levels','help','win','skins','pause'].forEach(i=>$(i).classList.add('hidden'));
+  ['menu','levels','help','win','skins','pause','co','coHost','coJoin','coPick','coWait'].forEach(i=>$(i).classList.add('hidden'));
   showHint(L.hint);
   updateHud();
   if(n===1||INTRO[n]) say('СВЕТ ЕСТЬ. ИДУ.',2.2);
@@ -1045,6 +1104,7 @@ function drawWorld(){
   for(const s of L.spiders) drawSpider(s);
   for(const h of L.haz) if(h.type==='saw') drawSaw(h);
   for(const b of bfs) drawMoth(b);
+  drawRemote();
   drawHero();
   for(const p of parts){ ctx.globalAlpha=clamp(p.life*2,0,1); ctx.fillStyle=p.c;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
@@ -1069,8 +1129,10 @@ function drawDarkness(){
   dtx.globalCompositeOperation='source-over';
   dtx.fillStyle='rgba(4,6,13,.985)'; dtx.fillRect(0,0,W,H);
   dtx.globalCompositeOperation='destination-out';
-  hole(mouse.sx,mouse.sy,lightR(),1);
-  hole(hero.x-cam.x,hero.y,58,.72);
+  hole(view.sx,view.sy,lightR(),1);
+  const wx=(net.on&&net.spectate)?net.remote.dx:hero.x;
+  const wy=(net.on&&net.spectate)?net.remote.dy:hero.y;
+  hole(wx-cam.x,wy,58,.72);
   for(const h of L.haz){
     if(h.type==='saw'){ const c=sawPos(h); hole(c.x-cam.x,c.y,h.r*2.4,.5); }
   }
@@ -1092,8 +1154,8 @@ function glow(x,y,r,col,a){
 }
 function drawGlows(){
   ctx.save(); ctx.globalCompositeOperation='lighter';
-  glow(mouse.x,mouse.y,lightR()*.95,'rgba(255,196,110,%A%)',.20);
-  glow(mouse.x,mouse.y,54,'rgba(255,236,190,%A%)',.42);
+  glow(view.x,view.y,lightR()*.95,'rgba(255,196,110,%A%)',.20);
+  glow(view.x,view.y,54,'rgba(255,236,190,%A%)',.42);
   for(const h of L.haz){
     if(h.type==='saw'){ const c=sawPos(h); glow(c.x,c.y,h.r*2.6,'rgba(255,70,50,%A%)',.30); }
   }
@@ -1108,7 +1170,8 @@ function drawGlows(){
       glow(pt.x,pt.y,40,'rgba(255,225,110,%A%)',.5); }
   }
   glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,70,'rgba(110,255,150,%A%)',.30);
-  glow(hero.x,hero.y-8,46,'rgba(255,210,150,%A%)',.16);
+  glow((net.on&&net.spectate)?net.remote.dx:hero.x,
+       ((net.on&&net.spectate)?net.remote.dy:hero.y)-8,46,'rgba(255,210,150,%A%)',.16);
   if(ROBOTS[rbI()].fly&&hero.dead<=0)
     glow(hero.x,hero.y+hero.h/2-9,24+hero.thrust*32,'rgba(130,205,255,%A%)',.17+hero.thrust*.26);
   ctx.restore();
@@ -1117,18 +1180,18 @@ function drawCursor(){
   const r=lightR();
   ctx.save(); ctx.globalCompositeOperation='lighter';
   ctx.strokeStyle='rgba(255,220,160,.16)'; ctx.lineWidth=1.4;
-  ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,r*.99,0,7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(view.sx,view.sy,r*.99,0,7); ctx.stroke();
   const cd=hero.pushCd;
   if(cd>0){ ctx.strokeStyle='rgba(255,150,110,.55)'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,17,-Math.PI/2,-Math.PI/2+(1-cd/(hero.pushMax||1))*Math.PI*2); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(view.sx,view.sy,17,-Math.PI/2,-Math.PI/2+(1-cd/(hero.pushMax||1))*Math.PI*2); ctx.stroke(); }
   else { ctx.strokeStyle='rgba(255,235,190,.5)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,15+Math.sin(time*4)*1.5,0,7); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(view.sx,view.sy,15+Math.sin(time*4)*1.5,0,7); ctx.stroke(); }
   ctx.fillStyle='rgba(255,245,215,.95)';
-  ctx.beginPath(); ctx.arc(mouse.sx,mouse.sy,4.5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(view.sx,view.sy,4.5,0,7); ctx.fill();
   ctx.restore();
   for(const m of motes){
     const x=(m.x-cam.x*m.s)%W, xx=x<0?x+W:x;
-    const d=dist(xx,m.y+Math.sin(time*.6+m.p)*10,mouse.sx,mouse.sy);
+    const d=dist(xx,m.y+Math.sin(time*.6+m.p)*10,view.sx,view.sy);
     if(d<r){ ctx.globalAlpha=(1-d/r)*.5; ctx.fillStyle='#ffeccb';
       ctx.beginPath(); ctx.arc(xx,m.y+Math.sin(time*.6+m.p)*10,m.r,0,7); ctx.fill(); }
   }
@@ -1239,7 +1302,7 @@ function startLevel(n,keep){
   if(!keep){ lvlTime=0; lvlDeaths=0; }
   state='play';
   $('hud').classList.remove('hidden');
-  ['menu','levels','help','win'].forEach(i=>$(i).classList.add('hidden'));
+  ['menu','levels','help','win','skins','pause','co','coHost','coJoin','coPick','coWait'].forEach(i=>$(i).classList.add('hidden'));
   showHint(L.hint); updateHud();
   if(!keep) say('СВЕТ ЕСТЬ. ИДУ.',2.2); else say('Перезапуск. Я в порядке!',1.6);
 }
@@ -1265,7 +1328,7 @@ function touchStuff(){
     say('Тут кто-то был... до меня.',2);
     showHint(L.note.text,7);
   }
-  if(aabb(b,L.exit)) winLevel();
+  if(aabb(b,L.exit)){ if(net.on) coFinish(); else winLevel(); }
 }
 function stars(){ let s=1; if(lvlTime<=8+L.width/130)s++; if(lvlDeaths===0)s++; return s; }
 function winLevel(){
@@ -1308,12 +1371,21 @@ function showHint(t,dur){
   if(!t){ el.classList.add('hidden'); hintT=0; return; }
   el.textContent=t; el.classList.remove('hidden'); el.style.opacity=1; hintT=dur||6;
 }
+function netGiveUp(){ showMenu(); }
 function showMenu(){
+  if(net.peer||net.conn){
+    try{ net.conn&&net.conn.close(); }catch(e){}
+    try{ net.peer&&net.peer.destroy(); }catch(e){}
+    net.on=false; net.role=null; net.conn=null; net.peer=null;
+    net.done=false; net.spectate=false; net.lostAt=0;
+    net.myReady=false; net.theirReady=false; net.remote.done=false;
+    $('hudCo').textContent=''; $('coSpec').classList.add('hidden');
+  }
   state='menu'; L=buildLevel(1); decorate();
   hero.x=L.start.x; hero.y=L.start.y; hero.vx=0; hero.vy=0; hero.say=null; hero.lost=0;
   cam.x=0; bfs.length=0;
   $('hud').classList.add('hidden'); $('hint').classList.add('hidden');
-  ['levels','help','win','skins','pause'].forEach(i=>$(i).classList.add('hidden'));
+  ['levels','help','win','skins','pause','co','coHost','coJoin','coPick','coWait'].forEach(i=>$(i).classList.add('hidden'));
   $('menu').classList.remove('hidden');
 }
 function buildGrid(){
@@ -1563,13 +1635,164 @@ function drawWires(){
   ctx.fillText(wires.done===4?'щиток закрывается...':'тяни от левой клеммы к правой того же цвета  ·  Esc — выйти',W/2,WP.y+WP.h+22);
 }
 
+// ───────── кооп на двоих ─────────
+const view={x:0,y:0,sx:0,sy:0};
+const net={on:false,role:null,code:'',peer:null,conn:null,lostAt:0,lastSend:0,
+  done:false,spectate:false,myReady:false,theirReady:false,theirPick:null,
+  remote:{x:100,y:400,dx:100,dy:400,vx:0,lx:0,ly:0,r:0,k:0,th:0,g:0,ti:0,og:1,d:0,done:false}};
+
+function coShow(id){
+  ['menu','co','coHost','coJoin','coPick','coWait','levels','help','win','skins','pause']
+    .forEach(i=>$(i).classList.add('hidden'));
+  if(id) $(id).classList.remove('hidden');
+}
+function makeCode(){ const A='ACDEFGHJKLMNPQRTUVWXY34679'; let c='';
+  for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
+function send(m){ try{ if(net.conn&&net.conn.open) net.conn.send(m); }catch(e){} }
+
+function coBlocked(){ return !!(window.claude&&window.claude.use); }
+function coCreate(){
+  if(coBlocked()){ $('coErr').textContent='Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'; return; }
+  if(!window.Peer){ $('coErr').textContent='Кооп не загрузился. Он работает на сайте игры, а не в предпросмотре.'; return; }
+  net.role='host'; net.code=makeCode();
+  $('coCode').textContent=net.code; $('coHostMsg').textContent='ждём второго игрока...';
+  coShow('coHost');
+  try{ net.peer=new Peer('bobbysun-'+net.code,{debug:0}); }
+  catch(e){ $('coErr').textContent='Не вышло создать лобби.'; coShow('co'); return; }
+  net.peer.on('connection',c=>bindConn(c));
+  net.peer.on('error',e=>{ $('coHostMsg').textContent='ошибка: '+(e&&e.type||'связь'); });
+}
+function coJoin(){
+  const code=($('coInput').value||'').trim().toUpperCase();
+  if(coBlocked()){ $('coErr2').textContent='Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'; return; }
+  if(code.length<4){ $('coErr2').textContent='Код из четырёх символов.'; return; }
+  if(!window.Peer){ $('coErr2').textContent='Кооп работает на сайте игры, а не в предпросмотре.'; return; }
+  net.role='guest'; net.code=code; $('coErr2').textContent='подключаюсь...';
+  try{ net.peer=new Peer({debug:0}); }
+  catch(e){ $('coErr2').textContent='Не вышло подключиться.'; return; }
+  net.peer.on('open',()=>{ bindConn(net.peer.connect('bobbysun-'+code)); });
+  net.peer.on('error',e=>{ $('coErr2').textContent=(e&&e.type==='peer-unavailable')?'Лобби с таким кодом не найдено.':'Ошибка связи.'; });
+}
+function bindConn(c){
+  net.conn=c;
+  c.on('open',()=>{ net.on=true; net.lostAt=0; net.myReady=false; net.theirReady=false;
+    send({t:'pick',r:rbI(),k:skI()}); buildCoPick(); coShow('coPick'); });
+  c.on('data',onNet);
+  c.on('close',netLost); c.on('error',netLost);
+}
+function netLost(){
+  if(!net.on||net.lostAt) return;
+  net.lostAt=performance.now();
+  showHint('друг отключился — ждём 20 секунд...',21);
+}
+function onNet(m){
+  if(!m||!m.t) return;
+  if(m.t==='s'){ const r=net.remote;
+    r.x=m.x; r.y=m.y; r.vx=m.vx; r.lx=m.lx; r.ly=m.ly;
+    r.r=m.r; r.k=m.k; r.th=m.th; r.g=m.g; r.ti=m.ti; r.og=m.og; r.d=m.d; return; }
+  if(m.t==='pick'){ net.theirPick={r:m.r,k:m.k};
+    $('coThem').textContent=ROBOTS[m.r]?ROBOTS[m.r].name:'—'; return; }
+  if(m.t==='ready'){ net.theirReady=!!m.v; coReadyCheck(); return; }
+  if(m.t==='start'||m.t==='next'){ startCoLevel(m.level); return; }
+  if(m.t==='done'){ net.remote.done=true; coAdvance(); return; }
+  if(m.t==='bye'){ netLost(); return; }
+}
+function coReadyCheck(){
+  $('btnCoReady').textContent=net.myReady?'ЖДЁМ ДРУГА...':'ГОТОВ';
+  if(net.myReady&&net.theirReady&&net.role==='host'){
+    send({t:'start',level:1}); startCoLevel(1);
+  }
+}
+function buildCoPick(){
+  const rw=$('coRobots'), sw=$('coSkins');
+  rw.innerHTML=''; sw.innerHTML='';
+  ROBOTS.forEach((r,i)=>{ const b=document.createElement('button');
+    b.textContent=r.name; if(i===rbI()) b.className='on';
+    b.onclick=()=>{ save.robot=i; persist(); buildCoPick(); send({t:'pick',r:rbI(),k:skI()}); };
+    rw.appendChild(b); });
+  SKINS.forEach((k,i)=>{ const b=document.createElement('button');
+    b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=k.name;
+    b.onclick=()=>{ save.skin=i; persist(); buildCoPick(); send({t:'pick',r:rbI(),k:skI()}); };
+    sw.appendChild(b); });
+  $('coMe').textContent=ROBOTS[rbI()].name;
+}
+const coPrevC=$('coPrev'), coPrevX=coPrevC?coPrevC.getContext('2d'):null;
+function drawCoPrev(){
+  if(!coPrevX) return;
+  coPrevX.fillStyle='#0d1220'; coPrevX.fillRect(0,0,230,150);
+  const g=coPrevX.createRadialGradient(115,86,0,115,86,95);
+  g.addColorStop(0,'rgba(255,205,140,.30)'); g.addColorStop(1,'rgba(255,205,140,0)');
+  coPrevX.fillStyle=g; coPrevX.fillRect(0,0,230,150);
+  coPrevX.fillStyle='#413a33'; coPrevX.fillRect(18,116,194,12);
+  coPrevX.save(); coPrevX.scale(1.85,1.85);
+  drawRobot(coPrevX,rbI(),skI(),{x:62,y:63,gait:time*7,walk:true,t:time,
+    look:Math.sin(time*1.1),lookY:0,er:3.4,jet:.3+.3*Math.max(0,Math.sin(time*1.5))});
+  coPrevX.restore();
+}
+function startCoLevel(n){
+  net.done=false; net.spectate=false; net.remote.done=false;
+  spawnPt=null; doorMemo=false;
+  startLevel(n);
+  $('hudCo').textContent='· 2 игрока';
+  $('coSpec').classList.add('hidden');
+}
+function coFinish(){
+  if(net.done) return;
+  net.done=true; hero.vx=0; sfx.win(); send({t:'done'});
+  $('coWaitMsg').textContent=net.remote.done?'Оба дошли — следующий уровень...':'Ждём друга.';
+  coShow('coWait'); $('hud').classList.remove('hidden');
+  coAdvance();
+}
+function coAdvance(){
+  if(!(net.done&&net.remote.done)) return;
+  if(net.role==='host'){ const nx=Math.min(100,cur+1);
+    send({t:'next',level:nx}); setTimeout(()=>startCoLevel(nx),700); }
+}
+function coSpectate(on){
+  net.spectate=on;
+  if(on){ coShow(null); $('hud').classList.remove('hidden'); $('coSpec').classList.remove('hidden'); }
+  else { $('coSpec').classList.add('hidden'); coShow('coWait'); $('hud').classList.remove('hidden'); }
+}
+function drawRemote(){
+  if(!net.on||net.remote.d) return;
+  const r=net.remote;
+  drawRobot(ctx,r.r|0,r.k|0,{x:r.dx,y:r.dy+hero.h/2,gait:r.g,
+    walk:r.og&&Math.abs(r.vx)>50,air:!r.og,t:time,lean:r.ti*.11,
+    jet:r.th,er:3.4,look:0,lookY:0});
+}
+$('btnCo').onclick=()=>{ $('coErr').textContent=''; coShow('co'); };
+$('btnCoBack').onclick=showMenu;
+$('btnCoJoinScr').onclick=()=>{ $('coErr2').textContent=''; coShow('coJoin'); setTimeout(()=>$('coInput').focus(),50); };
+$('btnCoBack2').onclick=()=>coShow('co');
+$('btnCoHost').onclick=coCreate;
+$('btnCoConnect').onclick=coJoin;
+$('btnCoCancel').onclick=netGiveUp;
+$('btnCoReady').onclick=()=>{ net.myReady=!net.myReady; send({t:'ready',v:net.myReady}); coReadyCheck(); };
+$('btnSpec').onclick=()=>coSpectate(true);
+$('coInput').addEventListener('keydown',e=>{ if(e.key==='Enter') coJoin(); });
+
 // ───────── главный цикл ─────────
 let last=performance.now();
 function frame(now){
   let dt=(now-last)/1000; last=now;
   dt=Math.min(dt,1/30);
-  if(state!=='paused'||!$('skins').classList.contains('hidden')) time+=dt;
+  if(state!=='paused'||!$('skins').classList.contains('hidden')||!$('coPick').classList.contains('hidden')) time+=dt;
   mouse.x=mouse.sx+cam.x; mouse.y=mouse.sy;
+  if(net.on&&net.spectate){ const r=net.remote;
+    view.x=r.lx; view.y=r.ly; view.sx=r.lx-cam.x; view.sy=r.ly; }
+  else { view.sx=mouse.sx; view.sy=mouse.sy; view.x=mouse.x; view.y=mouse.y; }
+  if(net.on){
+    const r=net.remote;
+    r.dx=lerp(r.dx,r.x,Math.min(1,15*dt)); r.dy=lerp(r.dy,r.y,Math.min(1,15*dt));
+    if(net.lostAt&&performance.now()-net.lostAt>20000) netGiveUp();
+    if(net.conn&&state==='play'&&!net.done&&performance.now()-net.lastSend>50){
+      net.lastSend=performance.now();
+      send({t:'s',x:Math.round(hero.x),y:Math.round(hero.y),vx:Math.round(hero.vx),
+        lx:Math.round(mouse.x),ly:Math.round(mouse.y),r:rbI(),k:skI(),
+        th:+hero.thrust.toFixed(2),g:+hero.gait.toFixed(2),ti:+hero.tilt.toFixed(2),
+        og:hero.onGround?1:0,d:hero.dead>0?1:0});
+    }
+  }
 
   if(hintT>0){ hintT-=dt; if(hintT<=0) $('hint').style.opacity=0; }
   if(state==='ending'){ endT+=dt; if(endT>2&&endT<2.1) playFile('sfx/sun',1,.7);
@@ -1579,11 +1802,13 @@ function frame(now){
     updatePlats(dt);
     if(state==='play') lvlTime+=dt;
     if(hero.dead>0){ hero.dead-=dt; updateParticles(dt); if(hero.dead<=0) respawn(); }
-    else if(state!=='win'){ think(dt); physics(dt);
+    else if(state!=='win'&&!(net.on&&net.done)){ think(dt); physics(dt);
       if(state==='play'){ checkHazards(); touchStuff(); } }
     else { physics(dt); }
     updateButterflies(dt); updateParticles(dt);
-    const tgt=clamp(hero.x-W/2+clamp(mouse.sx-W/2,-150,150)*.22,0,Math.max(0,L.width-W));
+    const tgt=(net.on&&net.spectate)
+      ? clamp(net.remote.dx-W/2,0,Math.max(0,L.width-W))
+      : clamp(hero.x-W/2+clamp(mouse.sx-W/2,-150,150)*.22,0,Math.max(0,L.width-W));
     cam.x+=(tgt-cam.x)*Math.min(1,7*dt);
     if(state==='play'&&Math.floor(lvlTime*2)!==Math.floor((lvlTime-dt)*2)) updateHud();
     dripT-=dt;
@@ -1600,6 +1825,7 @@ function frame(now){
   if(state==='play') drawOverlay();
   if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
+  if(!$('coPick').classList.contains('hidden')) drawCoPrev();
   requestAnimationFrame(frame);
 }
 // ── сохранение в аккаунт (работает в опубликованной версии) ──
