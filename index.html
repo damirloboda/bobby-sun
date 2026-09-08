@@ -255,14 +255,12 @@ function P(x,y,w,type,opt){
 }
 const SP=(x,y,w,down)=>({type:'spike',x,y:down?y:y-13,w,h:13,down:!!down});
 const SAW=(ax,ay,bx,by,r,speed,phase)=>({type:'saw',ax,ay,bx,by,r:r||20,speed:speed||1,phase:phase||0});
-const LAVA=(x,y,w,h)=>({type:'lava',x,y,w,h:h||12});
 
-const INTRO={14:'Платформы теперь ездят.',22:'Лава светится сама. Это единственная хорошая новость.',
-  30:'Треснувшие плиты падают через миг после шага.',38:'Паук. Бобби паникует и убегает от него.',
+const INTRO={14:'Платформы теперь ездят.',30:'Треснувшие плиты падают через миг после шага.',38:'Паук. Бобби паникует и убегает от него.',
   48:'Шипы бывают и на потолке. Не подбрасывай вслепую.'};
 
 function tutorial(n){
-  const base={n,butterflies:false,spiders:[],lavaFloor:false,light:255};
+  const base={n,butterflies:false,spiders:[],light:255};
   if(n===1) return Object.assign(base,{width:960,hint:'Веди мышь — свет ведёт Бобби. Дойди до двери.',
     start:{x:90,y:400},exit:{x:850,y:388,w:44,h:56},
     plats:[P(0,444,960)],haz:[]});
@@ -291,12 +289,11 @@ function buildLevel(n){
   const t=tutorial(n); if(t) return t;
   const rnd=mulberry32(90210+n*7919);
   const d=clamp((n-6)/94,0,1);
-  const F={saw:true,bfly:n>=10,move:n>=14,lava:n>=22,crumble:n>=30,spider:n>=38,ceil:n>=48};
+  const F={saw:true,bfly:n>=10,move:n>=14,crumble:n>=30,spider:n>=38,ceil:n>=48};
   const L={n,width:0,light:clamp(244-(n-6)*0.72,170,244),hint:INTRO[n]||null,
-    plats:[],haz:[],spiders:[],butterflies:F.bfly&&(n===10||rnd()<0.45),lavaFloor:false,start:null,exit:null};
-  if(F.lava&&rnd()<0.3) L.lavaFloor=true;
+    plats:[],haz:[],spiders:[],butterflies:F.bfly&&(n===10||rnd()<0.45),start:null,exit:null};
   const segs=clamp(4+Math.round((n-6)/6.2),4,17);
-  let x=30,y=430,spiderCount=0,forced={move:n===14,lava:n===22,crumble:n===30,spider:n===38,ceil:n===48};
+  let x=30,y=430,spiderCount=0,forced={move:n===14,crumble:n===30,spider:n===38,ceil:n===48};
 
   for(let i=0;i<segs;i++){
     const last=i===segs-1, first=i===0;
@@ -321,11 +318,7 @@ function buildLevel(n){
 
     if(!first&&!last&&type==='solid'&&w>=140){
       const r=rnd();
-      if(F.lava&&(forced.lava||r<0.08+0.10*d)){
-        forced.lava=false;
-        const lw=34+Math.floor(rnd()*Math.min(70,w-96));
-        L.haz.push(LAVA(x+46+rnd()*(w-92-lw),y-11,lw,11));
-      } else if(r<0.20+0.28*d){
+      if(r<0.20+0.28*d){
         const sw=28+Math.floor(rnd()*Math.min(66,w-92));
         L.haz.push(SP(x+44+rnd()*(w-88-sw),y,sw));
       }
@@ -621,7 +614,6 @@ function checkHazards(){
       if((cx-c.x)**2+(cy-c.y)**2<(h.r*.82)**2){ h.flash=.5; return die(); }
     } else if(aabb(b,h)){ h.flash=.5; return die(); }
   }
-  if(L.lavaFloor&&hero.y+hero.h/2>H-26) return die();
 }
 
 // ───────── частицы / бабочки ─────────
@@ -694,10 +686,10 @@ const DOOR_LEVELS={25:1,34:1,46:1};
 function placeDoor(){
   L.door=null;
   if(!DOOR_LEVELS[L.n]) return;
-  const cands=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=150);
+  const cands=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=128);
   if(!cands.length) return;
   const p=cands[Math.floor(cands.length/2)];
-  const dx=p.x+p.w-38, bx=p.x+42;
+  const dx=p.x+p.w-32, bx=p.x+34;
   const clash=L.plats.some(q=>q!==p&&q.x<dx+22&&q.x+q.w>dx-10&&q.y<p.y);
   if(clash||hazBlocks(bx,p.y,26)||hazBlocks(dx,p.y,26)) return;
   L.door={x:dx,y:p.y,w:16,open:false,anim:0,cur:-1,near:false,nearT:0,
@@ -780,15 +772,6 @@ function drawSaw(h){
   if(h.flash>0){ ctx.fillStyle='rgba(255,60,50,'+(h.flash*.9)+')';
     ctx.beginPath(); ctx.arc(0,0,h.r*1.4,0,7); ctx.fill(); }
   ctx.restore();
-}
-function drawLava(h){
-  ctx.fillStyle='#ff8a2b';
-  ctx.beginPath(); ctx.moveTo(h.x,h.y+h.h);
-  for(let i=0;i<=h.w;i+=6) ctx.lineTo(h.x+i,h.y+Math.sin(time*3+i*.18)*2.2);
-  ctx.lineTo(h.x+h.w,h.y+h.h); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#ffd35c';
-  ctx.fillRect(h.x+2,h.y+2+Math.sin(time*2)*1,h.w-4,2);
-  if(h.flash>0){ ctx.fillStyle='rgba(255,70,60,'+(h.flash*1.2)+')'; ctx.fillRect(h.x-2,h.y-3,h.w+4,h.h+5); }
 }
 function drawSpider(s){
   const b=Math.sin(s.t+time*2)*2;
@@ -1051,12 +1034,8 @@ function drawHero(){
 }
 
 function drawWorld(){
-  if(L.lavaFloor){ const y=H-26;
-    ctx.fillStyle='#ff7a1f'; ctx.beginPath(); ctx.moveTo(cam.x-20,H);
-    for(let i=-20;i<W+40;i+=8) ctx.lineTo(cam.x+i,y+Math.sin(time*2.4+i*.05)*3);
-    ctx.lineTo(cam.x+W+40,H); ctx.closePath(); ctx.fill(); }
   for(const p of L.plats) drawPlatform(p);
-  for(const h of L.haz){ if(h.type==='spike')drawSpikes(h); else if(h.type==='lava')drawLava(h); }
+  for(const h of L.haz) if(h.type==='spike') drawSpikes(h);
   for(const c of L.checks) drawCheck(c);
   if(L.note) drawNote(L.note);
   drawExit();
@@ -1091,7 +1070,6 @@ function drawDarkness(){
   hole(mouse.sx,mouse.sy,lightR(),1);
   hole(hero.x-cam.x,hero.y,58,.72);
   for(const h of L.haz){
-    if(h.type==='lava') hole(h.x+h.w/2-cam.x,h.y,h.w*.7+34,.72);
     if(h.type==='saw'){ const c=sawPos(h); hole(c.x-cam.x,c.y,h.r*2.4,.5); }
   }
   for(const s of L.spiders) hole(s.x-cam.x,s.y-4,26,.4);
@@ -1115,7 +1093,6 @@ function drawGlows(){
   glow(mouse.x,mouse.y,lightR()*.95,'rgba(255,196,110,%A%)',.20);
   glow(mouse.x,mouse.y,54,'rgba(255,236,190,%A%)',.42);
   for(const h of L.haz){
-    if(h.type==='lava') glow(h.x+h.w/2,h.y,h.w*.8+40,'rgba(255,120,30,%A%)',.42);
     if(h.type==='saw'){ const c=sawPos(h); glow(c.x,c.y,h.r*2.6,'rgba(255,70,50,%A%)',.30); }
   }
   for(const b of bfs) glow(b.x,b.y,56,'rgba(150,225,255,%A%)',.48);
