@@ -117,7 +117,8 @@ html,body{overscroll-behavior:none}
     <h2>ПАУЗА</h2>
     <p class="sub" id="pauseMsg">Бобби ждёт.</p>
     <button class="big" id="btnResume">ПРОДОЛЖИТЬ</button>
-    <div class="row"><button id="btnRestart2">ЗАНОВО</button><button id="btnLevels2">УРОВНИ</button><button id="btnHome">В МЕНЮ</button></div>
+    <div class="row"><button id="btnSkins2">РОБОТ</button><button id="btnRestart2">ЗАНОВО</button></div>
+    <div class="row"><button id="btnLevels2">УРОВНИ</button><button id="btnHome">В МЕНЮ</button></div>
     <p class="tiny">Esc — продолжить</p>
   </div>
 
@@ -236,7 +237,8 @@ addEventListener('keydown',e=>{
   if(k==='e'||k==='у'){ keys.eHit=true; }
   if(k==='r'||k==='к'){ if(state==='play'||state==='paused'){ spawnPt=null; startLevel(cur); } }
   if(k==='escape'){ e.preventDefault();
-    if(state==='wires') closeWires(false);
+    if(!$('skins').classList.contains('hidden')){ $('btnBack4').click(); }
+    else if(state==='wires') closeWires(false);
     else if(state==='play') pauseGame();
     else if(state==='paused') resumeGame();
     else if(state==='win'||state==='ending') showMenu(); }
@@ -1344,7 +1346,8 @@ function buildSkins(){
   rw.innerHTML=''; sw.innerHTML='';
   ROBOTS.forEach((r,i)=>{ const b=document.createElement('button');
     b.textContent=r.name; if(i===rbI()) b.className='on';
-    b.onclick=()=>{ save.robot=i; persist(); cloudPush(); buildSkins(); };
+    b.onclick=()=>{ save.robot=i; persist(); cloudPush(); buildSkins();
+      $('btnPush').textContent=ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК'; };
     rw.appendChild(b); });
   SKINS.forEach((k,i)=>{ const b=document.createElement('button');
     b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=k.name;
@@ -1366,8 +1369,16 @@ function drawPreview(){
     jet:.3+.3*Math.max(0,Math.sin(time*1.5)),lean:Math.sin(time*1.5)*.06});
   ptx.restore();
 }
-$('btnSkins').onclick=()=>{ buildSkins(); $('menu').classList.add('hidden'); $('skins').classList.remove('hidden'); };
-$('btnBack4').onclick=()=>{ $('skins').classList.add('hidden'); $('menu').classList.remove('hidden'); };
+let skinsFrom='menu';
+$('btnSkins').onclick=()=>{ skinsFrom='menu'; buildSkins();
+  $('menu').classList.add('hidden'); $('skins').classList.remove('hidden'); };
+$('btnSkins2').onclick=()=>{ skinsFrom='pause'; buildSkins();
+  $('pause').classList.add('hidden'); $('skins').classList.remove('hidden'); };
+$('btnBack4').onclick=()=>{
+  $('skins').classList.add('hidden');
+  if(skinsFrom==='pause'){ $('pause').classList.remove('hidden'); }
+  else $('menu').classList.remove('hidden');
+};
 function pauseGame(){
   if(state!=='play') return;
   state='paused'; keys.space=false; hero.jetOn=false;
@@ -1444,10 +1455,11 @@ function openWires(){
   if(right.every((v,i)=>v===i)){ const t=right[0]; right[0]=right[3]; right[3]=t; }
   wires={right,links:{},drag:null,done:0,doneAt:0};
   state='wires'; keys.space=false; $('hint').classList.add('hidden');
+  cv.style.cursor='grab';
   if(!playFile('sfx/note',1,.55)) tone(620,880,.16,'triangle',.05);
 }
 function closeWires(fixed){
-  wires=null; state='play'; last=performance.now(); if(hintT>0) $('hint').classList.remove('hidden');
+  wires=null; state='play'; last=performance.now(); cv.style.cursor='none'; if(hintT>0) $('hint').classList.remove('hidden');
   if(fixed&&L.door){ L.door.box.fixed=true; L.door.cur=0; doorMemo=true;
     if(!playFile('sfx/checkpoint',1,.6)) tone(500,1000,.25,'triangle',.07); }
 }
@@ -1460,7 +1472,7 @@ function wireNode(sx,sy){
 }
 function wireDown(){
   const n=wireNode(mouse.sx,mouse.sy);
-  if(n&&n.side===0&&wires.links[n.i]===undefined) wires.drag=n.i;
+  if(n&&n.side===0&&wires.links[n.i]===undefined){ wires.drag=n.i; cv.style.cursor='grabbing'; }
 }
 function wireUp(){
   if(wires&&wires.drag!==null&&wires.drag!==undefined){
@@ -1470,7 +1482,7 @@ function wireUp(){
       if(!playFile('sfx/checkpoint',1,.4)) tone(680+wires.done*130,900,.1,'triangle',.05);
       if(wires.done===4) wires.doneAt=performance.now();
     }
-    wires.drag=null;
+    wires.drag=null; cv.style.cursor='grab';
   }
 }
 // провод с провисанием, как настоящий кабель
@@ -1555,7 +1567,8 @@ function drawWires(){
 let last=performance.now();
 function frame(now){
   let dt=(now-last)/1000; last=now;
-  dt=Math.min(dt,1/30); if(state!=='paused') time+=dt;
+  dt=Math.min(dt,1/30);
+  if(state!=='paused'||!$('skins').classList.contains('hidden')) time+=dt;
   mouse.x=mouse.sx+cam.x; mouse.y=mouse.sy;
 
   if(hintT>0){ hintT-=dt; if(hintT<=0) $('hint').style.opacity=0; }
@@ -1583,7 +1596,7 @@ function frame(now){
   ctx.save(); ctx.translate(-cam.x,0); drawWorld(); ctx.restore();
   drawDarkness();
   ctx.save(); ctx.translate(-cam.x,0); drawGlows(); ctx.restore();
-  drawCursor();
+  if(state!=='wires') drawCursor();
   if(state==='play') drawOverlay();
   if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
