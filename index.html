@@ -98,7 +98,7 @@ html,body{overscroll-behavior:none}
       <b>ЛКМ</b> — божественный толчок: отбрасывает Бобби <i>от</i> курсора.<br>
       &nbsp;&nbsp;&nbsp;Кликни <b>под ним</b> — подбросишь вверх.<br>
       <b>Пробел</b> — способность робота. У каждого своя, попробуй всех троих.<br>
-      <b>R</b> — заново, <b>Esc</b> — меню, <b>S</b> — звук.<br>
+      <b>Esc</b> — пауза, <b>R</b> — заново, <b>S</b> — звук.<br>
       <span class="tiny">Бобби слеп к опасностям, залипает на бабочках,<br>устаёт от долгой ходьбы и панически боится пауков.</span>
     </div>
     <button id="btnBack2">ПОНЯЛ</button>
@@ -110,6 +110,14 @@ html,body{overscroll-behavior:none}
     <div class="row" id="robotRow"></div>
     <div class="row" id="skinRow"></div>
     <button id="btnBack4">ГОТОВО</button>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <h2>ПАУЗА</h2>
+    <p class="sub" id="pauseMsg">Бобби ждёт.</p>
+    <button class="big" id="btnResume">ПРОДОЛЖИТЬ</button>
+    <div class="row"><button id="btnRestart2">ЗАНОВО</button><button id="btnLevels2">УРОВНИ</button><button id="btnHome">В МЕНЮ</button></div>
+    <p class="tiny">Esc — продолжить</p>
   </div>
 
   <div id="win" class="screen hidden">
@@ -220,14 +228,17 @@ $('btnPush').addEventListener('pointerleave',()=>{ keys.space=false; });
 $('btnPush').addEventListener('pointercancel',()=>{ keys.space=false; });
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  if(k==='r'||k==='к'){ if(state==='play') startLevel(cur); }
-  if(k==='escape'){ if(state==='play'||state==='win'||state==='ending') showMenu(); }
+  if(k==='r'||k==='к'){ if(state==='play'||state==='paused'){ spawnPt=null; startLevel(cur); } }
+  if(k==='escape'){ e.preventDefault();
+    if(state==='play') pauseGame();
+    else if(state==='paused') resumeGame();
+    else if(state==='win'||state==='ending') showMenu(); }
   if(k==='s'||k==='ы'){ toggleSound(); }
   if(k===' '){ e.preventDefault(); keys.space=true; keys.spaceHit=true;
     const RK=ROBOTS[rbI()]; if(!RK.fly) doPush(); }
 });
 addEventListener('keyup',e=>{ if(e.key===' ') keys.space=false; });
-addEventListener('blur',()=>{ keys.space=false; });
+addEventListener('blur',()=>{ keys.space=false; if(state==='play') pauseGame(); });
 
 // ───────── уровни ─────────
 let PID=0;
@@ -368,7 +379,7 @@ function startLevel(n,keepStats){
   if(!keepStats){ lvlTime=0; lvlDeaths=0; }
   state='play';
   $('hud').classList.remove('hidden');
-  ['menu','levels','help','win','skins'].forEach(i=>$(i).classList.add('hidden'));
+  ['menu','levels','help','win','skins','pause'].forEach(i=>$(i).classList.add('hidden'));
   showHint(L.hint);
   updateHud();
   if(n===1||INTRO[n]) say('СВЕТ ЕСТЬ. ИДУ.',2.2);
@@ -1222,7 +1233,7 @@ function showMenu(){
   hero.x=L.start.x; hero.y=L.start.y; hero.vx=0; hero.vy=0; hero.say=null; hero.lost=0;
   cam.x=0; bfs.length=0;
   $('hud').classList.add('hidden'); $('hint').classList.add('hidden');
-  ['levels','help','win','skins'].forEach(i=>$(i).classList.add('hidden'));
+  ['levels','help','win','skins','pause'].forEach(i=>$(i).classList.add('hidden'));
   $('menu').classList.remove('hidden');
 }
 function buildGrid(){
@@ -1279,7 +1290,26 @@ function drawPreview(){
 }
 $('btnSkins').onclick=()=>{ buildSkins(); $('menu').classList.add('hidden'); $('skins').classList.remove('hidden'); };
 $('btnBack4').onclick=()=>{ $('skins').classList.add('hidden'); $('menu').classList.remove('hidden'); };
-$('btnMenu').onclick=showMenu;
+function pauseGame(){
+  if(state!=='play') return;
+  state='paused'; keys.space=false; hero.jetOn=false;
+  if(typeof jetSound==='function') jetSound(0);
+  $('pauseMsg').textContent='Уровень '+cur+' · '+fmt(lvlTime)+' · смертей '+lvlDeaths;
+  $('hud').classList.add('hidden');
+  $('pause').classList.remove('hidden');
+}
+function resumeGame(){
+  if(state!=='paused') return;
+  state='play'; last=performance.now();
+  $('pause').classList.add('hidden');
+  $('hud').classList.remove('hidden');
+}
+$('btnResume').onclick=resumeGame;
+$('btnRestart2').onclick=()=>{ spawnPt=null; startLevel(cur); };
+$('btnLevels2').onclick=()=>{ buildGrid(); $('pause').classList.add('hidden');
+  $('levels').classList.remove('hidden'); state='menu'; };
+$('btnHome').onclick=showMenu;
+$('btnMenu').onclick=pauseGame;
 $('btnRestart').onclick=()=>{ spawnPt=null; startLevel(cur); };
 $('btnReset').onclick=()=>{ if(confirm('Стереть весь прогресс?')){
   save={unlocked:1,done:{},best:{},stars:{},sound:SND,robot:save.robot|0,skin:save.skin|0}; persist(); cloudPush(); buildGrid(); } };
@@ -1327,7 +1357,7 @@ function drawEnding(){
 let last=performance.now();
 function frame(now){
   let dt=(now-last)/1000; last=now;
-  dt=Math.min(dt,1/30); time+=dt;
+  dt=Math.min(dt,1/30); if(state!=='paused') time+=dt;
   mouse.x=mouse.sx+cam.x; mouse.y=mouse.sy;
 
   if(hintT>0){ hintT-=dt; if(hintT<=0) $('hint').style.opacity=0; }
