@@ -214,7 +214,7 @@ addEventListener('touchstart',e=>{ const t=e.touches[0]; if(!t)return; setPointe
 addEventListener('touchmove',e=>{ const t=e.touches[0]; if(!t)return; setPointer(t.clientX,t.clientY,1);
   if(e.target===cv) e.preventDefault(); },{passive:false});
 $('btnPush').addEventListener('pointerdown',e=>{ e.preventDefault();
-  const RK=ROBOTS[rbI()]; keys.space=true; keys.spaceHit=true; if(!RK.fly&&!RK.flare) doPush(); });
+  const RK=ROBOTS[rbI()]; keys.space=true; keys.spaceHit=true; if(!RK.fly) doPush(); });
 $('btnPush').addEventListener('pointerup',()=>{ keys.space=false; });
 $('btnPush').addEventListener('pointerleave',()=>{ keys.space=false; });
 $('btnPush').addEventListener('pointercancel',()=>{ keys.space=false; });
@@ -224,7 +224,7 @@ addEventListener('keydown',e=>{
   if(k==='escape'){ if(state==='play'||state==='win'||state==='ending') showMenu(); }
   if(k==='s'||k==='ы'){ toggleSound(); }
   if(k===' '){ e.preventDefault(); keys.space=true; keys.spaceHit=true;
-    const RK=ROBOTS[rbI()]; if(!RK.fly&&!RK.flare) doPush(); }
+    const RK=ROBOTS[rbI()]; if(!RK.fly) doPush(); }
 });
 addEventListener('keyup',e=>{ if(e.key===' ') keys.space=false; });
 addEventListener('blur',()=>{ keys.space=false; });
@@ -345,14 +345,13 @@ function buildLevel(n){
 }
 
 // ───────── состояние ─────────
-const GRAV=1800, JUMP=690, SPEED=205, LEASH_SOFT=320, LEASH_HARD=460, FUEL=2.5, FLARES=3;
-let flares=[];
+const GRAV=1800, JUMP=690, SPEED=205, LEASH_SOFT=320, LEASH_HARD=460, FUEL=2.5;
 let state='menu', cur=1, L=null, time=0, lvlTime=0, lvlDeaths=0;
 let cam={x:0}, parts=[], bfs=[], shocks=[], motes=[];
 const hero={x:0,y:0,vx:0,vy:0,w:26,h:30,onGround:false,blocked:false,face:1,
   airTime:0,squash:0,walked:0,tired:0,distract:0,scared:0,bfCd:0,jumpCd:0,pushCd:0,
   dead:0,blink:0,lost:0,step:0,gait:0,jet:2.5,jetOn:false,jetVis:0,tilt:0,
-  thrust:0,jetMin:0,wantPrev:false,spacePrev:false,flares:3,trail:[],trailT:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
+  thrust:0,jetMin:0,wantPrev:false,spacePrev:false,faceAmt:1,trail:[],trailT:0,rideId:null,fleeFrom:null,bfTarget:null,emote:null,say:null,t:0};
 
 const heroBox=()=>({x:hero.x-hero.w/2,y:hero.y-hero.h/2,w:hero.w,h:hero.h});
 function say(text,dur){ hero.say={text,t:dur||1.8,max:dur||1.8}; }
@@ -447,14 +446,6 @@ function think(dt){
   hero.jetVis=hero.thrust;
   if(RB.fly||jetNode) jetSound(hero.thrust);
 
-  // факел Искры: выстрел по краю нажатия
-  if(RB.flare&&(keys.spaceHit||(keys.space&&!hero.spacePrev))&&hero.flares>0&&able){
-    hero.flares--;
-    const dx=mouse.x-hero.x, dy=mouse.y-hero.y-20, d=Math.max(1,Math.hypot(dx,dy));
-    flares.push({x:hero.x,y:hero.y-8,vx:dx/d*380+hero.vx*.35,vy:dy/d*380-150,
-      stuck:false,life:7.5,t:0});
-    if(!playFile('sfx/flare',1,.6)) tone(760,190,.28,'square',.06);
-  }
   hero.spacePrev=keys.space; keys.spaceHit=false;
 
   // след из призраков у летающего робота
@@ -514,6 +505,7 @@ function think(dt){
   const acc=hero.onGround?13:(hero.thrust>.1?9:5.5);
   hero.vx+=(want-hero.vx)*Math.min(1,acc*dt);
   if(Math.abs(hero.vx)>25) hero.face=hero.vx>0?1:-1;
+  hero.faceAmt=lerp(hero.faceAmt,mouse.x>=hero.x?1:-1,Math.min(1,11*dt));
 
   // прыжок: он тупо прыгает на свет, не глядя куда приземлится
   if(hero.onGround&&hero.jumpCd<=0&&hero.tired<=0&&!hero.lost){
@@ -604,25 +596,6 @@ function updateParticles(dt){
   for(let i=shocks.length-1;i>=0;i--){ const s=shocks[i];
     s.life-=dt; s.r+=(s.hit?900:520)*dt; if(s.life<=0) shocks.splice(i,1); }
 }
-function updateFlares(dt){
-  for(let i=flares.length-1;i>=0;i--){
-    const f=flares[i]; f.t+=dt; f.life-=dt;
-    if(!f.stuck){
-      f.vy+=1500*dt; f.x+=f.vx*dt; f.y+=f.vy*dt;
-      const b={x:f.x-3,y:f.y-3,w:6,h:6};
-      for(const p of L.plats) if(!p.gone&&aabb(b,p)){
-        f.stuck=true; f.vx=0; f.vy=0; f.y=Math.min(f.y,p.y-4); break; }
-      if(f.y>H+40){ f.stuck=true; f.life=Math.min(f.life,.5); }
-      if(Math.random()<.7) parts.push({x:f.x,y:f.y,
-        vx:(Math.random()*2-1)*40,vy:(Math.random()*2-1)*40,
-        life:.3,r:1+Math.random()*1.5,c:'#ffd48a',g:100});
-    } else if(Math.random()<.25) parts.push({x:f.x+(Math.random()*2-1)*3,y:f.y,
-        vx:(Math.random()*2-1)*25,vy:-20-Math.random()*40,
-        life:.5,r:.9+Math.random()*1.3,c:'#ffbe6a',g:-40});
-    if(f.life<=0) flares.splice(i,1);
-  }
-}
-const flareR=f=>132*clamp(f.life/1.3,0,1);
 let bfTimer=0;
 function updateButterflies(dt){
   if(L.butterflies){
@@ -638,6 +611,9 @@ function updateButterflies(dt){
     b.t+=dt; b.life-=dt;
     b.x=b.hx+Math.sin(b.t*1.4)*46+Math.sin(b.t*.6)*20;
     b.y=b.hy+Math.sin(b.t*2.1)*22+Math.cos(b.t*.9)*12;
+    if(Math.random()<.35) parts.push({x:b.x+(Math.random()*2-1)*4,y:b.y+3,
+      vx:(Math.random()*2-1)*12,vy:14+Math.random()*18,life:.5+Math.random()*.4,
+      r:.6+Math.random()*1.1,c:'#cdeeff',g:-24});
     if(b.life<=0) bfs.splice(i,1); }
 }
 
@@ -658,15 +634,35 @@ const CHAPTER={
  60:'Цех 4. Свет садится, а лестницы всё выше.\nОн ни разу не спросил, знаешь ли ты дорогу.',
  80:'Цех 5. Крыша уже близко.\nОн начал говорить о солнце так, будто видел его.'
 };
+// есть ли ловушка в точке x на платформе с верхом topY
+function hazBlocks(x,topY,pad){
+  const P=pad||18;
+  for(const h of L.haz){
+    if(h.type==='saw') continue;
+    if(x>h.x-P&&x<h.x+h.w+P&&Math.abs((h.y+h.h)-topY)<28) return true;
+  }
+  return false;
+}
+// безопасная точка на платформе, максимально далёкая от ловушек
+function freeSpot(p,margin){
+  const ok=[];
+  for(let x=p.x+margin;x<=p.x+p.w-margin;x+=6) if(!hazBlocks(x,p.y)) ok.push(x);
+  if(!ok.length) return null;
+  return ok[Math.floor(ok.length/2)];
+}
 function decorate(){
   L.checks=[]; L.note=null; L.spawn={x:L.start.x,y:L.start.y};
   const path=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=95);
-  const step=2;
-  for(let i=step-1;i<path.length;i+=step){
-    const p=path[i]; L.checks.push({x:p.x+p.w/2,y:p.y,on:false});
+  for(let i=1;i<path.length;i+=2){
+    const p=path[i], x=freeSpot(p,30);
+    if(x!==null) L.checks.push({x,y:p.y,on:false});
   }
   const nt=NOTES[L.n];
-  if(nt&&L.plats.length>2){ const p=L.plats[1]; L.note={x:p.x+p.w*0.55,y:p.y,text:nt,read:false}; }
+  if(nt&&L.plats.length>2){
+    const p=L.plats[1], x=freeSpot(p,26);
+    if(x!==null) L.note={x,y:p.y,text:nt,read:false};
+  }
+  L.spiders=L.spiders.filter(sp=>!hazBlocks(sp.x,sp.y+16,22));
 }
 
 // ───────── фон и мир ─────────
@@ -747,11 +743,28 @@ function drawSpider(s){
   for(let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(s.x-5+i*3.4,s.y+b-3,1.5,0,7); ctx.fill(); }
 }
 function drawMoth(b){
-  const f=Math.sin(b.t*14)*.6+.5;
-  ctx.fillStyle='rgba(180,235,255,.9)';
-  ctx.beginPath(); ctx.ellipse(b.x-4,b.y,5*f+2,7,-.4,0,7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(b.x+4,b.y,5*f+2,7,.4,0,7); ctx.fill();
-  ctx.fillStyle='#eafaff'; ctx.beginPath(); ctx.ellipse(b.x,b.y,2,5,0,0,7); ctx.fill();
+  const w=.32+.68*Math.abs(Math.sin(b.t*13));
+  ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(Math.sin(b.t*1.3)*.22);
+  for(const sd of [-1,1]){
+    ctx.save(); ctx.scale(sd,1);
+    ctx.fillStyle='rgba(122,192,242,.5)';
+    ctx.beginPath(); ctx.ellipse(3.2*w+1,2.7,3.3*w+1,3.1,-.22,0,7); ctx.fill();
+    ctx.fillStyle='rgba(198,239,255,.88)';
+    ctx.beginPath(); ctx.ellipse(4*w+1,-1.5,5.3*w+1.2,3.8,-.5,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.beginPath(); ctx.ellipse(4.4*w+1,-2.6,2.2*w+.5,1.6,-.5,0,7); ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle='#eef9ff';
+  ctx.beginPath(); ctx.ellipse(0,0,1.5,4.5,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(205,242,255,.75)'; ctx.lineWidth=.8;
+  ctx.beginPath();
+  ctx.moveTo(-.6,-3.8); ctx.quadraticCurveTo(-2.8,-6.6,-4.3,-6);
+  ctx.moveTo(.6,-3.8); ctx.quadraticCurveTo(2.8,-6.6,4.3,-6);
+  ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.beginPath(); ctx.arc(0,-3.2,1.1,0,7); ctx.fill();
+  ctx.restore();
 }
 function drawExit(){
   const e=L.exit, pulse=.6+.4*Math.sin(time*2.2);
@@ -780,8 +793,7 @@ function drawNote(nt){
 // ───────── роботы и скины ─────────
 const ROBOTS=[
   {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna'},
-  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt',fly:true},
-  {name:'ИСКРА',bw:22,bh:26,r:6,eyes:1,top:'lamp',flare:true}
+  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt',fly:true}
 ];
 const SKINS=[
   {name:'Классик',body:'#c3ccd8',trim:'#9aa5b4',line:'#2b3340',eye:'#ffd9a0'},
@@ -800,10 +812,11 @@ function drawRobot(c,ri,si,o){
   const g=o.gait||0, walking=!!o.walk, air=!!o.air, t=o.t||0;
   const sq=o.squash||0, look=o.look||0, lookY=o.lookY||0;
   c.save(); c.translate(o.x,o.y);
+  c.scale(o.face==null?1:(Math.abs(o.face)<.06?(o.face<0?-.06:.06):o.face),1);
 
   const bob=walking?Math.abs(Math.sin(g))*1.8:Math.sin(t*2)*.7;
   const hov=Math.sin(t*3.2)*2.4+Math.sin(t*1.7)*1.1+(air?-2.6:0)+clamp((o.vy||0)*.008,-3,3)-(o.jet||0)*2.5;
-  const thr=(.5+.5*Math.abs(Math.sin(t*19))*(walking||air?1:.55))*(1+(o.jet||0)*.55);
+  const thr=(.62+.38*Math.abs(Math.sin(t*19))*(walking||air?1:.5))*(1+(o.jet||0)*.35);
 
   if(!R.fly){
     // ноги — шаговый цикл: вынос вперёд, подъём, опора
@@ -818,28 +831,25 @@ function drawRobot(c,ri,si,o){
       c.fillStyle=S.line;  rr(c,lx-1.8,-3.5-fy,9.5,3.5,1.6); c.fill();
     }
   } else if(!o.ghost){
-    const J=o.jet||0, len=13+J*30;
-    c.fillStyle='rgba(150,215,255,'+((.14+J*.24)*thr)+')';
-    c.beginPath(); c.ellipse(0,-1,(16+thr*3)*(1+J*.55),4.5+J*2.5,0,0,7); c.fill();
-    const jg=c.createRadialGradient(0,-13,0,0,-13,12+len);
-    jg.addColorStop(0,'rgba(238,251,255,'+((.48+J*.45)*thr)+')');
-    jg.addColorStop(.32,'rgba(160,220,255,'+((.34+J*.4)*thr)+')');
+    const J=o.jet||0, len=10+J*26;
+    // компактное ядро тяги, без широкого пятна
+    const jg=c.createRadialGradient(0,-13,0,0,-13,9+J*13);
+    jg.addColorStop(0,'rgba(226,246,255,'+((.26+J*.4)*thr)+')');
     jg.addColorStop(1,'rgba(120,190,255,0)');
-    c.fillStyle=jg; c.beginPath(); c.ellipse(0,-13,14+J*8,11+len*.72,0,0,7); c.fill();
-    if(J>.02){
-      const fl=len*(.82+.18*Math.sin(t*31));
-      c.fillStyle='rgba(200,238,255,'+(.8*thr)+')';
-      const sk=(o.fvx||0)*fl*.45;
-      c.beginPath(); c.moveTo(-6.5-J*2.5,-14);
-      c.quadraticCurveTo(-sk*.5,-14+fl,6.5+J*2.5,-14);
-      c.quadraticCurveTo(-sk*.5,-14+fl*.34,-6.5-J*2.5,-14); c.closePath(); c.fill();
-      c.fillStyle='rgba(255,255,255,'+(.85*thr)+')';
-      c.beginPath(); c.moveTo(-3-J,-14);
-      c.quadraticCurveTo(0,-14+fl*.55,3+J,-14);
-      c.quadraticCurveTo(0,-14+fl*.18,-3-J,-14); c.closePath(); c.fill();
+    c.fillStyle=jg; c.beginPath(); c.arc(0,-13,9+J*13,0,7); c.fill();
+    if(J>.03){
+      const fl=len*(.85+.15*Math.sin(t*31)), sk=(o.fvx||0)*fl*.42;
+      c.fillStyle='rgba(150,205,255,'+(.5*thr)+')';
+      c.beginPath(); c.moveTo(-5.4,-13);
+      c.quadraticCurveTo(-sk*.4-4,-13+fl*.6,-sk,-13+fl);
+      c.quadraticCurveTo(-sk*.4+4,-13+fl*.6,5.4,-13); c.closePath(); c.fill();
+      c.fillStyle='rgba(250,253,255,'+(.72*thr)+')';
+      c.beginPath(); c.moveTo(-2.5,-13);
+      c.quadraticCurveTo(-sk*.25-2,-13+fl*.38,-sk*.6,-13+fl*.62);
+      c.quadraticCurveTo(-sk*.25+2,-13+fl*.38,2.5,-13); c.closePath(); c.fill();
     }
-    c.fillStyle='rgba(238,251,255,'+((.7+J*.3)*thr)+')';
-    c.beginPath(); c.ellipse(0,-14-hov*.35,7+J*2.5,3.4+J*1.6,0,0,7); c.fill();
+    c.fillStyle='rgba(205,238,255,'+((.45+J*.4)*thr)+')';
+    c.beginPath(); c.ellipse(0,-13.4,5.4+J*1.4,2.3,0,0,7); c.fill();
   }
 
   // корпус — покачивание и наклон в сторону движения
@@ -857,17 +867,6 @@ function drawRobot(c,ri,si,o){
     c.beginPath(); c.moveTo(0,-bh); c.lineTo(ab,-bh-9); c.stroke();
     c.fillStyle=o.lost?'#ff6b6b':'#ffd166';
     c.beginPath(); c.arc(ab,-bh-11,2.6,0,7); c.fill();
-  } else if(R.top==='lamp'){
-    c.fillStyle=S.trim; rr(c,-5.5,-bh-7,11,7,3); c.fill();
-    c.strokeStyle=S.line; c.lineWidth=1.6; rr(c,-5.5,-bh-7,11,7,3); c.stroke();
-    const lg=c.createRadialGradient(0,-bh-3.5,0,0,-bh-3.5,17);
-    lg.addColorStop(0,'rgba(255,214,140,.5)'); lg.addColorStop(1,'rgba(255,214,140,0)');
-    c.fillStyle=lg; c.beginPath(); c.arc(0,-bh-3.5,17,0,7); c.fill();
-    c.fillStyle='#ffd68c'; c.beginPath(); c.arc(0,-bh-4,2.5,0,7); c.fill();
-    c.save(); c.translate(bw/2-3,-bh*.52); c.rotate(-.55);
-    c.fillStyle=S.trim; rr(c,0,-2.8,12,5.6,2.4); c.fill();
-    c.strokeStyle=S.line; c.lineWidth=1.4; rr(c,0,-2.8,12,5.6,2.4); c.stroke();
-    c.restore();
   } else {
     c.fillStyle=S.trim; rr(c,-4.5,-bh-5,9,5,2); c.fill();
     c.strokeStyle=S.line; c.lineWidth=1.6; rr(c,-4.5,-bh-5,9,5,2); c.stroke();
@@ -904,18 +903,19 @@ function drawHero(){
   else if(hero.distract>0){ er=4; ec='#9be3ff'; }
   else if(hero.lost){ er=2; ec='#ff9d6b'; }
   if(hero.blink>0) er=.8;
+  const FS=hero.faceAmt<0?-1:1;
   for(const gh of hero.trail){
     ctx.globalAlpha=clamp(gh.a,0,1)*.20;
-    drawRobot(ctx,rbI(),skI(),{x:gh.x,y:gh.y+hero.h/2,t:time,lean:gh.lean,
+    drawRobot(ctx,rbI(),skI(),{x:gh.x,y:gh.y+hero.h/2,t:time,lean:gh.lean*FS,face:hero.faceAmt,
       jet:gh.jet,er:0,ec:'rgba(0,0,0,0)',ghost:true});
   }
   ctx.globalAlpha=1;
   drawRobot(ctx,rbI(),skI(),{
     x:hero.x, y:hero.y+hero.h/2, gait:hero.gait,
     walk:hero.onGround&&Math.abs(hero.vx)>50, air:!hero.onGround,
-    t:time, squash:hero.squash, lean:hero.tilt*.11, vy:hero.vy,
-    jet:hero.thrust, fvx:clamp(hero.vx/SPEED,-1,1), pitch:clamp(-hero.vy/900,-.14,.14),
-    look:clamp((mouse.x-hero.x)/120,-1,1), lookY:clamp((mouse.y-hero.y)/120,-1,1),
+    t:time, squash:hero.squash, lean:hero.tilt*.11*FS, vy:hero.vy, face:hero.faceAmt,
+    jet:hero.thrust, fvx:clamp(hero.vx/SPEED,-1,1)*FS, pitch:clamp(-hero.vy/900,-.14,.14)*FS,
+    look:clamp((mouse.x-hero.x)/120,-1,1)*FS, lookY:clamp((mouse.y-hero.y)/120,-1,1),
     er:er, ec:ec, lost:hero.lost, shake:hero.scared>0?Math.sin(time*40)*1.2:0
   });
   // индикатор способности
@@ -925,11 +925,6 @@ function drawHero(){
     ctx.fillStyle='rgba(16,24,40,.8)'; rr(ctx,bx-1,by-1,bw2+2,5.5,2.7); ctx.fill();
     ctx.fillStyle=hero.jet>.6?'#8fd4ff':'#ff9370';
     rr(ctx,bx,by,bw2*clamp(hero.jet/FUEL,0,1),3.5,1.8); ctx.fill();
-  } else if(RB2.flare){
-    for(let i=0;i<FLARES;i++){
-      ctx.fillStyle=i<hero.flares?'#ffbe6a':'rgba(90,80,70,.55)';
-      ctx.beginPath(); ctx.arc(hero.x-8+i*8,hero.y-hero.h/2-14,2.6,0,7); ctx.fill();
-    }
   }
   // облачко
   if(hero.say){
@@ -960,13 +955,6 @@ function drawWorld(){
   drawExit();
   for(const s of L.spiders) drawSpider(s);
   for(const h of L.haz) if(h.type==='saw') drawSaw(h);
-  for(const f of flares){
-    const fade=clamp(f.life/1.3,0,1), fl=.75+.25*Math.sin(f.t*23);
-    ctx.fillStyle='rgba(255,186,86,'+(.9*fade*fl)+')';
-    ctx.beginPath(); ctx.arc(f.x,f.y,3.4,0,7); ctx.fill();
-    ctx.fillStyle='rgba(255,247,220,'+(.95*fade)+')';
-    ctx.beginPath(); ctx.arc(f.x,f.y,1.7,0,7); ctx.fill();
-  }
   for(const b of bfs) drawMoth(b);
   drawHero();
   for(const p of parts){ ctx.globalAlpha=clamp(p.life*2,0,1); ctx.fillStyle=p.c;
@@ -1000,7 +988,6 @@ function drawDarkness(){
   }
   for(const s of L.spiders) hole(s.x-cam.x,s.y-4,26,.4);
   for(const b of bfs) hole(b.x-cam.x,b.y,52,.8);
-  for(const f of flares) hole(f.x-cam.x,f.y,flareR(f),.86);
   for(const c of L.checks) hole(c.x-cam.x,c.y-34,c.on?46:22,c.on?.7:.4);
   if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
   hole(L.exit.x+L.exit.w/2-cam.x,L.exit.y+L.exit.h/2,64,.62);
@@ -1022,14 +1009,13 @@ function drawGlows(){
     if(h.type==='saw'){ const c=sawPos(h); glow(c.x,c.y,h.r*2.6,'rgba(255,70,50,%A%)',.30); }
   }
   for(const b of bfs) glow(b.x,b.y,56,'rgba(150,225,255,%A%)',.48);
-  for(const f of flares) glow(f.x,f.y,flareR(f)*.95,'rgba(255,180,95,%A%)',.34);
   for(const s of L.spiders) glow(s.x,s.y-4,20,'rgba(255,40,40,%A%)',.35);
   for(const c of L.checks) glow(c.x,c.y-34,c.on?52:20,c.on?'rgba(110,255,150,%A%)':'rgba(255,80,80,%A%)',c.on?.45:.22);
   if(L.note) glow(L.note.x,L.note.y-16,40,'rgba(110,180,255,%A%)',.32);
   glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,70,'rgba(110,255,150,%A%)',.30);
   glow(hero.x,hero.y-8,46,'rgba(255,210,150,%A%)',.16);
   if(ROBOTS[rbI()].fly&&hero.dead<=0)
-    glow(hero.x,hero.y+hero.h/2-8,38+hero.jetVis*46,'rgba(130,205,255,%A%)',.30+hero.jetVis*.35);
+    glow(hero.x,hero.y+hero.h/2-9,24+hero.thrust*32,'rgba(130,205,255,%A%)',.17+hero.thrust*.26);
   ctx.restore();
 }
 function drawCursor(){
@@ -1148,9 +1134,9 @@ function startLevel(n,keep){
   hero.tired=0;hero.distract=0;hero.scared=0;hero.bfCd=0;hero.jumpCd=0;hero.pushCd=0;
   hero.lost=0;hero.rideId=null;hero.emote=null;hero.say=null;
   hero.jet=FUEL;hero.jetOn=false;hero.jetVis=0;hero.thrust=0;hero.tilt=0;
-  hero.jetMin=0;hero.wantPrev=false;hero.spacePrev=false;hero.flares=FLARES;
-  hero.trail.length=0;flares.length=0;keys.space=false;
-  $('btnPush').textContent=ROBOTS[rbI()].fly?'ЛЁТ':(ROBOTS[rbI()].flare?'ФАКЕЛ':'ТОЛЧОК');
+  hero.jetMin=0;hero.wantPrev=false;hero.spacePrev=false;hero.faceAmt=mouse.x>=hero.x?1:-1;
+  hero.trail.length=0;keys.space=false;
+  $('btnPush').textContent=ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК';
   bfs.length=0;parts.length=0;shocks.length=0;bfTimer=2;
   cam.x=clamp(hero.x-W/2,0,L.width-W);
   if(!keep){ lvlTime=0; lvlDeaths=0; }
@@ -1280,9 +1266,10 @@ function drawPreview(){
   ptx.fillStyle='#413a33'; ptx.fillRect(18,116,194,12);
   ptx.fillStyle='#615247'; ptx.fillRect(18,116,194,4);
   ptx.save(); ptx.scale(1.85,1.85);
-  drawRobot(ptx,rbI(),skI(),{x:62,y:63,gait:time*7,walk:true,t:time,
-    look:Math.sin(time*1.1),lookY:0,er:3.4,jet:.3+.3*Math.max(0,Math.sin(time*1.5)),
-    lean:Math.sin(time*1.5)*.06});
+  const pf=clamp(Math.cos(time*.75)*1.8,-1,1);
+  drawRobot(ptx,rbI(),skI(),{x:62,y:63,gait:time*7,walk:true,t:time,face:pf,
+    look:Math.sin(time*1.1)*(pf<0?-1:1),lookY:0,er:3.4,
+    jet:.3+.3*Math.max(0,Math.sin(time*1.5)),lean:Math.sin(time*1.5)*.06});
   ptx.restore();
 }
 $('btnSkins').onclick=()=>{ buildSkins(); $('menu').classList.add('hidden'); $('skins').classList.remove('hidden'); };
@@ -1349,7 +1336,7 @@ function frame(now){
     else if(state!=='win'){ think(dt); physics(dt);
       if(state==='play'){ checkHazards(); touchStuff(); } }
     else { physics(dt); }
-    updateButterflies(dt); updateFlares(dt); updateParticles(dt);
+    updateButterflies(dt); updateParticles(dt);
     const tgt=clamp(hero.x-W/2+clamp(mouse.sx-W/2,-150,150)*.22,0,Math.max(0,L.width-W));
     cam.x+=(tgt-cam.x)*Math.min(1,7*dt);
     if(state==='play'&&Math.floor(lvlTime*2)!==Math.floor((lvlTime-dt)*2)) updateHud();
