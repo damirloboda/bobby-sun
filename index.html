@@ -63,6 +63,10 @@ button.ghost:hover{color:#fff;transform:none;box-shadow:none}
 .helpbox b{color:#ffd166}
 .stats{display:flex;gap:1.6em;font-size:1.15em;color:#d6dcff}
 .stats b{color:#fff;display:block;font-size:1.5em}
+#btnLang{position:absolute;top:.55em;left:.7em;z-index:6;font-size:.8em;padding:.28em .9em;
+  background:rgba(11,16,41,.55);color:#ffd166;box-shadow:none;border:2px solid rgba(255,209,102,.4);
+  letter-spacing:.08em;font-weight:700;backdrop-filter:blur(4px)}
+#btnLang:hover{background:rgba(255,209,102,.16);transform:none;box-shadow:none}
 #btnPush{position:absolute;right:1em;bottom:1em;z-index:4;width:5.6em;height:5.6em;border-radius:50%;font-size:1.05em;display:none;background:#ff9db0;color:#4a0d1c;box-shadow:0 .3em 0 #c05f72}
 .touch #btnPush{display:block}
 #rotate{position:fixed;inset:0;z-index:99;background:#0b1029;color:#ffd166;display:none;
@@ -121,6 +125,7 @@ html,body{overscroll-behavior:none}
 <body>
 <div id="app"><div id="stage">
   <canvas id="game" width="960" height="540"></canvas>
+  <button id="btnLang">EN</button>
 
   <div id="hud" class="hidden">
     <div><button id="btnMenu">☰</button><span id="hudLevel">Уровень 1</span><span id="hudCo"></span></div>
@@ -154,7 +159,7 @@ html,body{overscroll-behavior:none}
       <b>Курсор выше</b> — Бобби прыгает. Чем выше, тем сильнее.<br>
       <b>ЛКМ</b> — божественный толчок: отбрасывает Бобби <i>от</i> курсора.<br>
       &nbsp;&nbsp;&nbsp;Кликни <b>под ним</b> — подбросишь вверх.<br>
-      <b>Пробел</b> — способность робота. У каждого своя, попробуй всех троих.<br>
+      <b>Пробел</b> — способность робота. У Бобби толчок, у Гайки ранец.<br>
       <b>E</b> — починить щиток у запертой двери.<br>
       <b>Вдвоём:</b> каждый ведёт своего робота и видит чужого, только посветив на него.<br>
       <b>Esc</b> — пауза, <b>R</b> — заново, <b>S</b> — звук.<br>
@@ -231,6 +236,37 @@ html,body{overscroll-behavior:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script>
 'use strict';
+/* ─────────── два языка ─────────── */
+const I18N={"Уровень 1":"Level 1","Уровень ":"Level ","ТОЛЧОК":"SHOVE","ЛЁТ":"FLY","смотришь за другом · Esc — назад":"watching your friend · Esc — back","БОББИ":"BOBBY","ищет солнце":"seeks the sun","Бобби идёт туда, где твоя мышь.":"Bobby walks wherever your mouse is.","Бобби не смотрит под ноги.":"Bobby never looks down.","Ты его бог. Ты его единственная надежда.":"You are his god. You are his only hope.","ИГРАТЬ":"PLAY","ИГРАТЬ ВДВОЁМ":"PLAY TOGETHER","УРОВНИ":"LEVELS","РОБОТ":"ROBOT","КАК ИГРАТЬ":"HOW TO PLAY","Войти через Google":"Sign in with Google","сбросить прогресс":"reset progress","💾 прогресс сохраняется в этом браузере":"💾 progress is saved in this browser","☁ прогресс сохраняется в аккаунте":"☁ progress is saved to your account","☁ загружаю прогресс...":"☁ loading progress...","☁ прогресс в аккаунте Google":"☁ progress synced with Google","☁ ошибка чтения: ":"☁ read error: ","Не вышло войти: ":"Sign-in failed: ","Выйти · ":"Sign out · ","аккаунт":"account","100 УРОВНЕЙ":"100 LEVELS","НАЗАД":"BACK","ПОНЯЛ":"GOT IT","ГОТОВО":"DONE","ГОТОВ":"READY","Мышь":"Mouse","— Бобби всегда идёт к курсору.":"— Bobby always walks toward the cursor.","Курсор выше":"Cursor higher","— Бобби прыгает. Чем выше, тем сильнее.":"— Bobby jumps. The higher, the stronger.","ЛКМ":"LMB","— божественный толчок: отбрасывает Бобби":"— divine shove: pushes Bobby","от":"away from","курсора.":"the cursor.","Кликни":"Click","под ним":"beneath him","— подбросишь вверх.":"— and you launch him upward.","Пробел":"Space","— способность робота. У Бобби толчок, у Гайки ранец.":"— robot ability. Bobby shoves, Gaika flies.","— починить щиток у запертой двери.":"— repair the panel at a locked door.","Вдвоём:":"Together:","каждый ведёт своего робота и видит чужого, только посветив на него.":"each player leads their own robot and sees the other only by shining light on them.","— пауза,":"— pause,","— заново,":"— restart,","— звук.":"— sound.","Бобби слеп к опасностям, залипает на бабочках,":"Bobby is blind to danger, gets mesmerised by moths,","устаёт от долгой ходьбы и панически боится пауков.":"overheats from long walks and is terrified of spiders.","Двое ведут своих роботов по одному уровню.":"Two players lead their robots through one level.","Каждый светит только своему.":"Each lights only their own.","СОЗДАТЬ ЛОББИ":"CREATE LOBBY","ВВЕСТИ КОД":"ENTER CODE","назад":"back","КОД ЛОББИ":"LOBBY CODE","Скажи этот код другу":"Give this code to your friend","ждём второго игрока...":"waiting for the second player...","отмена":"cancel","ВВЕДИ КОД":"ENTER THE CODE","ПОДКЛЮЧИТЬСЯ":"CONNECT","ВЫБЕРИ РОБОТА":"CHOOSE YOUR ROBOT","ты:":"you:","друг:":"friend:","выбирает...":"choosing...","УРОВЕНЬ ПРОЙДЕН":"LEVEL COMPLETE","Ждём друга.":"Waiting for your friend.","СМОТРЕТЬ ЗА ДРУГОМ":"WATCH YOUR FRIEND","ЖДЁМ ДРУГА...":"WAITING...","ПАУЗА":"PAUSED","Бобби ждёт.":"Bobby is waiting.","ПРОДОЛЖИТЬ":"RESUME","ЗАНОВО":"RESTART","В МЕНЮ":"MENU","Esc — продолжить":"Esc — resume","ГОТОВО!":"DONE!","ХОРОШО!":"GOOD!","ИДЕАЛЬНО!":"PERFECT!","Бобби выжил. Сам он не понял как.":"Bobby survived. He has no idea how.","Быстро. Он даже не успел испугаться.":"Fast. He barely had time to be scared.","Ни одной смерти. Ты хороший бог.":"Not a single death. You are a good god.","время":"time","смертей":"deaths"," · смертей ":" · deaths ","ДАЛЬШЕ →":"NEXT →","Поверни телефон":"Rotate your phone","игра работает горизонтально":"the game runs in landscape","Стереть весь прогресс?":"Erase all progress?","Платформы теперь ездят.":"Platforms move now.","Треснувшие плиты падают через миг после шага.":"Cracked slabs fall a moment after you step on them.","Паук. Бобби паникует и убегает от него.":"A spider. Bobby panics and runs away.","Шипы бывают и на потолке. Не подбрасывай вслепую.":"Spikes hang from ceilings too. Don't launch him blindly.","Веди мышь — свет ведёт Бобби. Дойди до двери.":"Move the mouse — the light leads Bobby. Reach the door.","Подними курсор выше — и Бобби прыгнет. Чем выше, тем сильнее.":"Raise the cursor — Bobby jumps. The higher, the stronger.","Он НЕ видит шипы. Посвети вперёд и перепрыгни.":"He does NOT see the spikes. Shine ahead and jump over.","Высоко. ЛКМ — толчок: кликни ПОД Бобби, чтобы подбросить.":"Too high. LMB is a shove: click BENEATH Bobby to launch him.","Пила светится сама. Она его не пожалеет.":"The saw glows on its own. It will not spare him.","Бабочка светится и Бобби на неё залипает. Терпи.":"The moth glows and Bobby gets mesmerised. Be patient.","Дверь заперта. Подойди к щитку и нажми E.":"The door is locked. Walk to the panel and press E.","СВЕТ ЕСТЬ. ИДУ.":"LIGHT FOUND. WALKING.","...где ты?":"...where are you?","ОШИБКА. БАБОЧКА.":"ERROR. BUTTERFLY.","перегрев...":"overheating...","ДВЕРЬ! Я НАШЁЛ ДВЕРЬ!":"A DOOR! I FOUND A DOOR!","Тут кто-то был... до меня.":"Someone was here... before me.","Я запомнил это место.":"I remembered this place.","Это не твоя вина.":"It is not your fault.","Перезапуск. Я в порядке!":"Rebooting. I am fine!","Ого-о!":"Whoa-a!","ЛОГ №41: я видел свет наверху. один раз. я не смог дойти.":"LOG 41: I saw the light above. once. I could not reach it.","ЛОГ №17: не иди за светом, который не зовёт тебя.":"LOG 17: do not follow a light that is not calling you.","здесь стоял БЛОК-9. он ждал свой свет 4000 часов.":"BLOCK-9 stood here. it waited for its light for 4000 hours.","старший говорил: солнце — это лампа, которую нельзя выключить.":"the elder said: the sun is a lamp that cannot be switched off.","наверх шли все. наверх дошли не все.":"everyone walked upward. not everyone arrived.","ЛОГ №3: если твой свет ошибается — он всё равно твой свет.":"LOG 3: if your light makes mistakes — it is still your light.","я чувствую тепло на корпусе. значит, уже близко.":"I feel warmth on my shell. that means it is close.","ЛОГ последний: когда выйдешь — не оборачивайся. ему будет больно.":"FINAL LOG: when you get out — do not look back. it will hurt him.","ВЫХОД":"EXIT","ГАЙКА":"GAIKA","Классик":"Classic","Ржавый":"Rusty","Мятный":"Mint","Ночной":"Midnight","Золотой":"Golden","Вишня":"Cherry","Бобби потерял свет — подойди ближе":"Bobby lost the light — come closer","Дверь открылась.":"The door opened.","За ней не было потолка.":"Behind it there was no ceiling.","Бобби впервые увидел свет, который не двигался за курсором.":"For the first time Bobby saw a light that did not follow a cursor.","Он обернулся, чтобы сказать спасибо.":"He turned around to say thank you.","Но при солнце тебя не видно.":"But in sunlight you cannot be seen.","Ты всё ещё здесь.":"You are still here.","Просто теперь он дойдёт сам.":"He just does not need you to walk anymore.","СПАСИБО, ЧТО ВЁЛ ЕГО.":"THANK YOU FOR LEADING HIM.","нажми Esc — вернуться в меню":"press Esc to return to the menu","СОЕДИНИ ПРОВОДА":"CONNECT THE WIRES","щиток закрывается...":"panel closing...","тяни от левой клеммы к правой того же цвета  ·  Esc — выйти":"drag from a left terminal to the right one of the same colour  ·  Esc — exit","Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.":"Co-op needs the standalone site — the connection is blocked inside this preview.","Кооп не загрузился. Он работает на сайте игры, а не в предпросмотре.":"Co-op failed to load. It works on the game site, not in a preview.","Кооп работает на сайте игры, а не в предпросмотре.":"Co-op works on the game site, not in a preview.","Не вышло создать лобби.":"Could not create the lobby.","ошибка: ":"error: ","связь":"connection","Код из четырёх символов.":"The code is four characters.","подключаюсь...":"connecting...","Не вышло подключиться.":"Could not connect.","Лобби с таким кодом не найдено.":"No lobby found with that code.","Ошибка связи.":"Connection error.","друг отключился — ждём 20 секунд...":"your friend disconnected — waiting 20 seconds...","Оба дошли! Следующий уровень...":"Both made it! Next level...","· 2 игрока":"· 2 players","Вы прошли все сто уровней. Вдвоём.":"You finished all one hundred levels. Together."};
+let LANG='ru';
+try{ LANG=localStorage.getItem('bobby_lang')||'ru'; }catch(e){}
+function tr(x){ if(LANG!=='en'||typeof x!=='string') return x;
+  return I18N[x]!==undefined?I18N[x]:x; }
+function walkText(root,fn){ if(!root)return;
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null); let n;
+  while(n=w.nextNode()) fn(n); }
+function applyLangDOM(){
+  [document.getElementById('app'),document.getElementById('rotate')].forEach(function(root){
+    walkText(root,function(n){
+      if(n.__ru===undefined) n.__ru=n.nodeValue;
+      const src=n.__ru, key=src.trim();
+      if(!key) return;
+      const out=(LANG==='en'&&I18N[key]!==undefined)?I18N[key]:key;
+      n.nodeValue=src.replace(key,out);
+    });
+  });
+  const b=document.getElementById('btnLang'); if(b) b.textContent=(LANG==='en'?'RU':'EN');
+  document.documentElement.lang=LANG;
+}
+function setLang(l){
+  LANG=l; try{ localStorage.setItem('bobby_lang',l); }catch(e){}
+  applyLangDOM();
+  try{ if(L) updateHud(); }catch(e){}
+  try{ if(!$('levels').classList.contains('hidden')) buildGrid(); }catch(e){}
+  try{ if(!$('skins').classList.contains('hidden')) buildSkins(); }catch(e){}
+  try{ if(!$('coPick').classList.contains('hidden')) buildCoPick(); }catch(e){}
+  try{ $('btnPush').textContent=tr(ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК'); }catch(e){}
+}
 let W=960; const H=540;
 function fitW(){ const a=window.innerWidth/Math.max(1,window.innerHeight);
   return Math.round(H*clampN(a,1.6,2.4)/2)*2; }
@@ -238,7 +274,7 @@ function clampN(v,a,b){ return v<a?a:v>b?b:v; }
 const cv=document.getElementById('game'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
 const $=id=>document.getElementById(id);
-const bp=$('btnPush');
+const bp=$('btnPush'), bl=$('btnLang');
 
 // теневой холст для темноты
 const dcv=document.createElement('canvas'); dcv.width=W; dcv.height=H;
@@ -1000,7 +1036,7 @@ function drawExit(){
   ctx.fillStyle='rgba(120,255,150,'+(.55+.45*pulse)+')';
   rr(ctx,e.x+6,e.y-13,e.w-12,8,3); ctx.fill();
   ctx.fillStyle='#0c2a14'; ctx.font='700 7px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('ВЫХОД',e.x+e.w/2,e.y-6.5);
+  ctx.fillText(tr('ВЫХОД'),e.x+e.w/2,e.y-6.5);
 }
 function drawCheck(c){
   ctx.fillStyle='#3a4049'; ctx.fillRect(c.x-2,c.y-30,4,30);
@@ -1294,7 +1330,7 @@ function drawOverlay(){
   if(hero.lost){
     ctx.fillStyle='rgba(255,160,120,'+(.3+.2*Math.sin(time*5))+')';
     ctx.font='700 13px "Chalkboard SE","Comfortaa",sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Бобби потерял свет — подойди ближе',W/2,H-24);
+    ctx.fillText(tr('Бобби потерял свет — подойди ближе'),W/2,H-24);
   }
 }
 
@@ -1324,8 +1360,9 @@ const VOICE={'СВЕТ ЕСТЬ. ИДУ.':['voice/start',4],'...где ты?':['
   'Я запомнил это место.':['voice/check',1],'Это не твоя вина.':['voice/die',4],
   'Перезапуск. Я в порядке!':['voice/respawn',2],'Ого-о!':['voice/push',2]};
 function say(text,dur){
-  hero.say={text,t:dur||1.8,max:dur||1.8};
-  const v=VOICE[text]; if(v) playFile(v[0],v[1],.85);
+  const v=VOICE[text];
+  hero.say={text:tr(text),t:dur||1.8,max:dur||1.8};
+  if(v) playFile(v[0],v[1],.85);
 }
 
 // фоновое гудение фабрики
@@ -1381,7 +1418,7 @@ function startLevel(n,keep){
   hero.jet=FUEL;hero.jetOn=false;hero.jetVis=0;hero.thrust=0;hero.tilt=0;
   hero.jetMin=0;hero.wantPrev=false;hero.spacePrev=false;
   hero.trail.length=0;keys.space=false;
-  $('btnPush').textContent=ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК';
+  $('btnPush').textContent=tr(ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК');
   bfs.length=0;parts.length=0;shocks.length=0;bfTimer=2;
   cam.x=clamp(hero.x-W/2,0,L.width-W);
   if(!keep){ lvlTime=0; lvlDeaths=0; }
@@ -1396,7 +1433,7 @@ function die(){
   if(state!=='play'){ hero.x=L.start.x;hero.y=L.start.y;hero.vx=0;hero.vy=0; return; }
   if(hero.dead>0) return;
   hero.dead=.8; lvlDeaths++; hero.emote=null;
-  hero.say={text:'Это не твоя вина.',t:.8,max:.8};
+  hero.say={text:tr('Это не твоя вина.'),t:.8,max:.8};
   const v=VOICE['Это не твоя вина.']; if(v)playFile(v[0],v[1],.85);
   sfx.die(); updateHud();
   for(let i=0;i<28;i++) parts.push({x:hero.x,y:hero.y,vx:(Math.random()*2-1)*240,
@@ -1430,10 +1467,10 @@ function winLevel(){
     vx:(Math.random()*2-1)*200,vy:-Math.random()*320,life:1+Math.random(),
     r:2+Math.random()*3,c:['#ffd166','#7ee081','#9be3ff'][i%3],g:520});
   if(cur===100){ state='ending'; endT=0; $('hud').classList.add('hidden'); $('win').classList.add('hidden'); $('hint').classList.add('hidden'); return; }
-  $('winTitle').textContent=['','ГОТОВО!','ХОРОШО!','ИДЕАЛЬНО!'][st];
-  $('winMsg').innerHTML=(CHAPTER[cur]?CHAPTER[cur].replace('\n','<br>')
-    :['','Бобби выжил. Сам он не понял как.','Быстро. Он даже не успел испугаться.',
-      'Ни одной смерти. Ты хороший бог.'][st])
+  $('winTitle').textContent=tr(['','ГОТОВО!','ХОРОШО!','ИДЕАЛЬНО!'][st]);
+  $('winMsg').innerHTML=(CHAPTER[cur]?tr(CHAPTER[cur]).replace('\n','<br>')
+    :tr(['','Бобби выжил. Сам он не понял как.','Быстро. Он даже не успел испугаться.',
+      'Ни одной смерти. Ты хороший бог.'][st]))
     +'<br><span style="font-size:1.7em;letter-spacing:.1em">'
     +'★'.repeat(st)+'<span style="opacity:.25">'+'★'.repeat(3-st)+'</span></span>';
   $('winTime').textContent=fmt(lvlTime);
@@ -1446,7 +1483,7 @@ function winLevel(){
 // ───────── HUD / экраны ─────────
 const fmt=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
 function updateHud(){
-  $('hudLevel').textContent='Уровень '+cur+'/100';
+  $('hudLevel').textContent=tr('Уровень ')+cur+'/100';
   $('hudDeaths').textContent='💀 '+lvlDeaths;
   $('hudTime').textContent=fmt(lvlTime);
 }
@@ -1454,7 +1491,7 @@ let hintT=0;
 function showHint(t,dur){
   const el=$('hint');
   if(!t){ el.classList.add('hidden'); hintT=0; return; }
-  el.textContent=t; el.classList.remove('hidden'); el.style.opacity=1; hintT=dur||6;
+  el.textContent=tr(t); el.classList.remove('hidden'); el.style.opacity=1; hintT=dur||6;
 }
 function netGiveUp(){ showMenu(); }
 function showMenu(){
@@ -1502,12 +1539,12 @@ function buildSkins(){
   const rw=$('robotRow'), sw=$('skinRow');
   rw.innerHTML=''; sw.innerHTML='';
   ROBOTS.forEach((r,i)=>{ const b=document.createElement('button');
-    b.textContent=r.name; if(i===rbI()) b.className='on';
+    b.textContent=tr(r.name); if(i===rbI()) b.className='on';
     b.onclick=()=>{ save.robot=i; persist(); cloudPush(); buildSkins();
-      $('btnPush').textContent=ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК'; };
+      $('btnPush').textContent=tr(ROBOTS[rbI()].fly?'ЛЁТ':'ТОЛЧОК'); };
     rw.appendChild(b); });
   SKINS.forEach((k,i)=>{ const b=document.createElement('button');
-    b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=k.name;
+    b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=tr(k.name);
     b.onclick=()=>{ save.skin=i; persist(); cloudPush(); buildSkins(); };
     sw.appendChild(b); });
 }
@@ -1540,7 +1577,7 @@ function pauseGame(){
   if(state!=='play') return;
   state='paused'; keys.space=false; hero.jetOn=false;
   if(typeof jetSound==='function') jetSound(0);
-  $('pauseMsg').textContent='Уровень '+cur+' · '+fmt(lvlTime)+' · смертей '+lvlDeaths;
+  $('pauseMsg').textContent=tr('Уровень ')+cur+' · '+fmt(lvlTime)+tr(' · смертей ')+lvlDeaths;
   $('hud').classList.add('hidden');
   $('pause').classList.remove('hidden');
 }
@@ -1557,7 +1594,7 @@ $('btnLevels2').onclick=()=>{ buildGrid(); $('pause').classList.add('hidden');
 $('btnHome').onclick=showMenu;
 $('btnMenu').onclick=pauseGame;
 $('btnRestart').onclick=()=>{ spawnPt=null; startLevel(cur); };
-$('btnReset').onclick=()=>{ if(confirm('Стереть весь прогресс?')){
+$('btnReset').onclick=()=>{ if(confirm(tr('Стереть весь прогресс?'))){
   save={unlocked:1,done:{},best:{},stars:{},sound:SND,robot:save.robot|0,skin:save.skin|0}; persist(); cloudPush(); buildGrid(); } };
 function toggleSound(){ SND=!SND; save.sound=SND; persist(); $('btnSound').textContent=SND?'🔊':'🔇'; }
 $('btnFs').onclick=()=>{
@@ -1599,12 +1636,12 @@ function drawEnding(){
     ctx.globalAlpha=a;
     ctx.fillStyle=i>=8?'#3a2a10':'#2b2210';
     ctx.font=(i>=8?'700 30px':'400 20px')+' "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
-    ctx.textAlign='center'; ctx.fillText(END[i],W/2,H*.34);
+    ctx.textAlign='center'; ctx.fillText(tr(END[i]),W/2,H*.34);
     ctx.globalAlpha=1;
   }
   if(endT>END.length*1.9+2){
     ctx.fillStyle='rgba(60,45,20,.7)'; ctx.font='400 15px "Chalkboard SE","Comfortaa",sans-serif';
-    ctx.textAlign='center'; ctx.fillText('нажми Esc — вернуться в меню',W/2,H-24);
+    ctx.textAlign='center'; ctx.fillText(tr('нажми Esc — вернуться в меню'),W/2,H-24);
   }
 }
 
@@ -1727,9 +1764,9 @@ function drawWires(){
   ctx.textAlign='center';
   ctx.fillStyle=wires.done===4?'#7ee081':'#ffd166';
   ctx.font='700 19px \'Chalkboard SE\',\'Comfortaa\',sans-serif';
-  ctx.fillText(wires.done===4?'WORKING':'СОЕДИНИ ПРОВОДА',W/2,WP.y-16);
+  ctx.fillText(tr(wires.done===4?'WORKING':'СОЕДИНИ ПРОВОДА'),W/2,WP.y-16);
   ctx.fillStyle='rgba(180,192,220,.55)'; ctx.font='400 12px sans-serif';
-  ctx.fillText(wires.done===4?'щиток закрывается...':'тяни от левой клеммы к правой того же цвета  ·  Esc — выйти',W/2,WP.y+WP.h+22);
+  ctx.fillText(tr(wires.done===4?'щиток закрывается...':'тяни от левой клеммы к правой того же цвета  ·  Esc — выйти'),W/2,WP.y+WP.h+22);
 }
 
 // ───────── кооп на двоих ─────────
@@ -1749,28 +1786,28 @@ function send(m){ try{ if(net.conn&&net.conn.open) net.conn.send(m); }catch(e){}
 
 function coBlocked(){ return !!(window.claude&&window.claude.use); }
 function coCreate(){
-  if(coBlocked()){ $('coErr').textContent='Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'; return; }
-  if(!window.Peer){ $('coErr').textContent='Кооп не загрузился. Он работает на сайте игры, а не в предпросмотре.'; return; }
+  if(coBlocked()){ $('coErr').textContent=tr('Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'); return; }
+  if(!window.Peer){ $('coErr').textContent=tr('Кооп не загрузился. Он работает на сайте игры, а не в предпросмотре.'); return; }
   net.role='host'; net.code=makeCode();
-  $('coCode').textContent=net.code; $('coHostMsg').textContent='ждём второго игрока...';
+  $('coCode').textContent=net.code; $('coHostMsg').textContent=tr('ждём второго игрока...');
   coShow('coHost');
   try{ net.peer=new Peer('bobbysun-'+net.code,{debug:0}); }
-  catch(e){ $('coErr').textContent='Не вышло создать лобби.'; coShow('co'); return; }
+  catch(e){ $('coErr').textContent=tr('Не вышло создать лобби.'); coShow('co'); return; }
   net.peer.on('connection',c=>bindConn(c));
-  net.peer.on('error',e=>{ $('coHostMsg').textContent='ошибка: '+(e&&e.type||'связь'); });
+  net.peer.on('error',e=>{ $('coHostMsg').textContent=tr('ошибка: ')+(e&&e.type||tr('связь')); });
 }
 function coJoin(){
   const code=($('coInput').value||'').trim().toUpperCase();
-  if(coBlocked()){ $('coErr2').textContent='Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'; return; }
-  if(code.length<4){ $('coErr2').textContent='Код из четырёх символов.'; return; }
-  if(!window.Peer){ $('coErr2').textContent='Кооп работает на сайте игры, а не в предпросмотре.'; return; }
+  if(coBlocked()){ $('coErr2').textContent=tr('Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'); return; }
+  if(code.length<4){ $('coErr2').textContent=tr('Код из четырёх символов.'); return; }
+  if(!window.Peer){ $('coErr2').textContent=tr('Кооп работает на сайте игры, а не в предпросмотре.'); return; }
   try{ net.peer&&net.peer.destroy(); }catch(e){}
   net.peer=null; net.conn=null;
-  net.role='guest'; net.code=code; $('coErr2').textContent='подключаюсь...';
+  net.role='guest'; net.code=code; $('coErr2').textContent=tr('подключаюсь...');
   try{ net.peer=new Peer({debug:0}); }
-  catch(e){ $('coErr2').textContent='Не вышло подключиться.'; return; }
+  catch(e){ $('coErr2').textContent=tr('Не вышло подключиться.'); return; }
   net.peer.on('open',()=>{ bindConn(net.peer.connect('bobbysun-'+code)); });
-  net.peer.on('error',e=>{ $('coErr2').textContent=(e&&e.type==='peer-unavailable')?'Лобби с таким кодом не найдено.':'Ошибка связи.'; });
+  net.peer.on('error',e=>{ $('coErr2').textContent=tr((e&&e.type==='peer-unavailable')?'Лобби с таким кодом не найдено.':'Ошибка связи.'); });
 }
 function bindConn(c){
   net.conn=c;
@@ -1791,18 +1828,18 @@ function onNet(m){
     r.x=m.x; r.y=m.y; r.vx=m.vx; r.lx=m.lx; r.ly=m.ly;
     r.r=m.r; r.k=m.k; r.th=m.th; r.g=m.g; r.ti=m.ti; r.og=m.og; r.d=m.d; return; }
   if(m.t==='pick'){ net.theirPick={r:m.r,k:m.k};
-    $('coThem').textContent=ROBOTS[m.r]?ROBOTS[m.r].name:'—'; return; }
+    $('coThem').textContent=tr(ROBOTS[m.r]?ROBOTS[m.r].name:'—'); return; }
   if(m.t==='ready'){ net.theirReady=!!m.v; coReadyCheck(); return; }
   if(m.t==='start'||m.t==='next'){ startCoLevel(m.level); return; }
   if(m.t==='done'){ net.remote.done=true;
-    if(net.done){ $('coWaitMsg').textContent='Оба дошли! Следующий уровень...';
+    if(net.done){ $('coWaitMsg').textContent=tr('Оба дошли! Следующий уровень...');
       $('btnSpec').style.display='none';
       if(net.spectate) coSpectate(false); }
     coAdvance(); return; }
   if(m.t==='bye'){ netLost(); return; }
 }
 function coReadyCheck(){
-  $('btnCoReady').textContent=net.myReady?'ЖДЁМ ДРУГА...':'ГОТОВ';
+  $('btnCoReady').textContent=tr(net.myReady?'ЖДЁМ ДРУГА...':'ГОТОВ');
   if(net.myReady&&net.theirReady&&net.role==='host'){
     send({t:'start',level:1}); startCoLevel(1);
   }
@@ -1811,14 +1848,14 @@ function buildCoPick(){
   const rw=$('coRobots'), sw=$('coSkins');
   rw.innerHTML=''; sw.innerHTML='';
   ROBOTS.forEach((r,i)=>{ const b=document.createElement('button');
-    b.textContent=r.name; if(i===rbI()) b.className='on';
+    b.textContent=tr(r.name); if(i===rbI()) b.className='on';
     b.onclick=()=>{ save.robot=i; persist(); buildCoPick(); send({t:'pick',r:rbI(),k:skI()}); };
     rw.appendChild(b); });
   SKINS.forEach((k,i)=>{ const b=document.createElement('button');
-    b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=k.name;
+    b.className='sw'+(i===skI()?' on':''); b.style.background=k.body; b.title=tr(k.name);
     b.onclick=()=>{ save.skin=i; persist(); buildCoPick(); send({t:'pick',r:rbI(),k:skI()}); };
     sw.appendChild(b); });
-  $('coMe').textContent=ROBOTS[rbI()].name;
+  $('coMe').textContent=tr(ROBOTS[rbI()].name);
 }
 const coPrevC=$('coPrev'), coPrevX=coPrevC?coPrevC.getContext('2d'):null;
 function drawCoPrev(){
@@ -1838,14 +1875,14 @@ function startCoLevel(n){
   net.remote.got=false; $('btnSpec').style.display='';
   spawnPt=null; doorMemo=false;
   startLevel(n);
-  $('hudCo').textContent='· 2 игрока';
+  $('hudCo').textContent=tr('· 2 игрока');
   $('coSpec').classList.add('hidden');
 }
 function coFinish(){
   if(net.done) return;
   net.done=true; hero.vx=0; sfx.win(); send({t:'done'});
   const second=net.remote.done;
-  $('coWaitMsg').textContent=second?'Оба дошли! Следующий уровень...':'Ждём друга.';
+  $('coWaitMsg').textContent=tr(second?'Оба дошли! Следующий уровень...':'Ждём друга.');
   $('btnSpec').style.display=second?'none':'';
   coShow('coWait'); $('hud').classList.remove('hidden');
   coAdvance();
@@ -1853,7 +1890,7 @@ function coFinish(){
 function coAdvance(){
   if(!(net.done&&net.remote.done)) return;
   if(cur>=100){
-    $('coWaitMsg').textContent='Вы прошли все сто уровней. Вдвоём.';
+    $('coWaitMsg').textContent=tr('Вы прошли все сто уровней. Вдвоём.');
     $('btnSpec').style.display='none';
     return;
   }
@@ -1938,6 +1975,8 @@ function frame(now){
   if(state!=='play') keys.eHit=false;
   const pv=(state==='play')?'visible':'hidden';
   if(bp.style.visibility!==pv) bp.style.visibility=pv;
+  const lv=(state==='play'||state==='ending'||state==='wires')?'hidden':'visible';
+  if(bl&&bl.style.visibility!==lv) bl.style.visibility=lv;
   if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
   if(!$('coPick').classList.contains('hidden')) drawCoPrev();
@@ -1977,7 +2016,7 @@ async function initCloud(){
     const snap=await cloudDoc.get();
     if(snap&&snap.exists) mergeSave(snap.data());
     const el=$('cloudTag');
-    if(el) el.textContent='☁ прогресс сохраняется в аккаунте';
+    if(el) el.textContent=tr('☁ прогресс сохраняется в аккаунте');
     if(!$('levels').classList.contains('hidden')) buildGrid();
     cloudPush();
     cloudDoc.onSnapshot(s=>{ if(s&&s.exists) mergeSave(s.data()); },()=>{});
@@ -1985,6 +2024,8 @@ async function initCloud(){
 }
 initCloud();
 
+applyLangDOM();
+$('btnLang').onclick=()=>setLang(LANG==='en'?'ru':'en');
 showMenu();
 requestAnimationFrame(frame);
 </script>
