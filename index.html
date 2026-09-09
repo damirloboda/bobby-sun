@@ -1015,25 +1015,36 @@ function drawRobot(c,ri,si,o){
       c.fillStyle=S.line;  rr(c,lx-1.8,-3.5-fy,9.5,3.5,1.6); c.fill();
     }
   } else if(!o.ghost){
-    const J=o.jet||0, len=10+J*26;
-    // компактное ядро тяги, без широкого пятна
-    const jg=c.createRadialGradient(0,-13,0,0,-13,9+J*13);
-    jg.addColorStop(0,'rgba(226,246,255,'+((.26+J*.4)*thr)+')');
-    jg.addColorStop(1,'rgba(120,190,255,0)');
-    c.fillStyle=jg; c.beginPath(); c.arc(0,-13,9+J*13,0,7); c.fill();
-    if(J>.03){
-      const fl=len*(.85+.15*Math.sin(t*31)), sk=(o.fvx||0)*fl*.42;
-      c.fillStyle='rgba(150,205,255,'+(.5*thr)+')';
-      c.beginPath(); c.moveTo(-5.4,-13);
-      c.quadraticCurveTo(-sk*.4-4,-13+fl*.6,-sk,-13+fl);
-      c.quadraticCurveTo(-sk*.4+4,-13+fl*.6,5.4,-13); c.closePath(); c.fill();
-      c.fillStyle='rgba(250,253,255,'+(.72*thr)+')';
-      c.beginPath(); c.moveTo(-2.5,-13);
-      c.quadraticCurveTo(-sk*.25-2,-13+fl*.38,-sk*.6,-13+fl*.62);
-      c.quadraticCurveTo(-sk*.25+2,-13+fl*.38,2.5,-13); c.closePath(); c.fill();
+    const J=o.jet||0;
+    const ny=-16-hov;                      // срез сопла живёт вместе с корпусом
+    c.fillStyle=S.trim; rr(c,-6.5,ny-1,13,6,2.2); c.fill();
+    c.fillStyle=S.line; rr(c,-4.8,ny+3.6,9.6,2.4,1.2); c.fill();
+    if(J>.02){
+      const flick=.84+.10*Math.sin(t*37)+.06*Math.sin(t*61.7);
+      const fl=(12+J*32)*flick, sk=(o.fvx||0)*fl*.40, w0=5.0+J*1.8, y0=ny+5;
+      c.save(); c.globalCompositeOperation='lighter';
+      const jg=c.createRadialGradient(0,y0,0,0,y0,11+J*17);
+      jg.addColorStop(0,'rgba(150,214,255,'+((.18+J*.32)*thr)+')');
+      jg.addColorStop(1,'rgba(80,150,255,0)');
+      c.fillStyle=jg; c.beginPath(); c.arc(0,y0,11+J*17,0,7); c.fill();
+      const cone=(w,len,col)=>{
+        c.fillStyle=col; c.beginPath(); c.moveTo(-w,y0);
+        c.quadraticCurveTo(-w*.7-sk*.35,y0+len*.55,-sk,y0+len);
+        c.quadraticCurveTo(w*.7-sk*.35,y0+len*.55,w,y0); c.closePath(); c.fill();
+      };
+      cone(w0,     fl,     'rgba(105,185,255,'+(.40*thr)+')');
+      cone(w0*.62, fl*.70, 'rgba(198,234,255,'+(.55*thr)+')');
+      cone(w0*.31, fl*.42, 'rgba(255,255,255,'+(.85*thr)+')');
+      for(let k=1;k<=3;k++){               // ромбы Маха внутри струи
+        const p=k/4, yy=y0+fl*p*.78;
+        const r=w0*.30*(1-p*.55)*(.72+.28*Math.sin(t*26+k*2));
+        c.fillStyle='rgba(255,255,255,'+((.46-k*.11)*thr*J)+')';
+        c.beginPath(); c.ellipse(-sk*p,yy,r*1.6,r,0,0,7); c.fill();
+      }
+      c.fillStyle='rgba(255,255,255,'+((.5+J*.4)*thr)+')';
+      c.beginPath(); c.ellipse(0,y0-.4,w0*.9,2.0,0,0,7); c.fill();
+      c.restore();
     }
-    c.fillStyle='rgba(205,238,255,'+((.45+J*.4)*thr)+')';
-    c.beginPath(); c.ellipse(0,-13.4,5.4+J*1.4,2.3,0,0,7); c.fill();
   }
 
   // корпус — покачивание и наклон в сторону движения
@@ -1711,6 +1722,8 @@ function coJoin(){
   if(coBlocked()){ $('coErr2').textContent='Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.'; return; }
   if(code.length<4){ $('coErr2').textContent='Код из четырёх символов.'; return; }
   if(!window.Peer){ $('coErr2').textContent='Кооп работает на сайте игры, а не в предпросмотре.'; return; }
+  try{ net.peer&&net.peer.destroy(); }catch(e){}
+  net.peer=null; net.conn=null;
   net.role='guest'; net.code=code; $('coErr2').textContent='подключаюсь...';
   try{ net.peer=new Peer({debug:0}); }
   catch(e){ $('coErr2').textContent='Не вышло подключиться.'; return; }
@@ -1732,13 +1745,18 @@ function netLost(){
 function onNet(m){
   if(!m||!m.t) return;
   if(m.t==='s'){ const r=net.remote;
+    if(!r.got){ r.got=true; r.dx=m.x; r.dy=m.y; }
     r.x=m.x; r.y=m.y; r.vx=m.vx; r.lx=m.lx; r.ly=m.ly;
     r.r=m.r; r.k=m.k; r.th=m.th; r.g=m.g; r.ti=m.ti; r.og=m.og; r.d=m.d; return; }
   if(m.t==='pick'){ net.theirPick={r:m.r,k:m.k};
     $('coThem').textContent=ROBOTS[m.r]?ROBOTS[m.r].name:'—'; return; }
   if(m.t==='ready'){ net.theirReady=!!m.v; coReadyCheck(); return; }
   if(m.t==='start'||m.t==='next'){ startCoLevel(m.level); return; }
-  if(m.t==='done'){ net.remote.done=true; coAdvance(); return; }
+  if(m.t==='done'){ net.remote.done=true;
+    if(net.done){ $('coWaitMsg').textContent='Оба дошли! Следующий уровень...';
+      $('btnSpec').style.display='none';
+      if(net.spectate) coSpectate(false); }
+    coAdvance(); return; }
   if(m.t==='bye'){ netLost(); return; }
 }
 function coReadyCheck(){
@@ -1775,6 +1793,7 @@ function drawCoPrev(){
 }
 function startCoLevel(n){
   net.done=false; net.spectate=false; net.remote.done=false;
+  net.remote.got=false; $('btnSpec').style.display='';
   spawnPt=null; doorMemo=false;
   startLevel(n);
   $('hudCo').textContent='· 2 игрока';
@@ -1783,13 +1802,20 @@ function startCoLevel(n){
 function coFinish(){
   if(net.done) return;
   net.done=true; hero.vx=0; sfx.win(); send({t:'done'});
-  $('coWaitMsg').textContent=net.remote.done?'Оба дошли — следующий уровень...':'Ждём друга.';
+  const second=net.remote.done;
+  $('coWaitMsg').textContent=second?'Оба дошли! Следующий уровень...':'Ждём друга.';
+  $('btnSpec').style.display=second?'none':'';
   coShow('coWait'); $('hud').classList.remove('hidden');
   coAdvance();
 }
 function coAdvance(){
   if(!(net.done&&net.remote.done)) return;
-  if(net.role==='host'){ const nx=Math.min(100,cur+1);
+  if(cur>=100){
+    $('coWaitMsg').textContent='Вы прошли все сто уровней. Вдвоём.';
+    $('btnSpec').style.display='none';
+    return;
+  }
+  if(net.role==='host'){ const nx=cur+1;
     send({t:'next',level:nx}); setTimeout(()=>startCoLevel(nx),700); }
 }
 function coSpectate(on){
@@ -1798,7 +1824,7 @@ function coSpectate(on){
   else { $('coSpec').classList.add('hidden'); coShow('coWait'); $('hud').classList.remove('hidden'); }
 }
 function drawRemote(){
-  if(!net.on||net.remote.d) return;
+  if(!net.on||net.remote.d||!net.remote.got) return;
   const r=net.remote;
   drawRobot(ctx,r.r|0,r.k|0,{x:r.dx,y:r.dy+hero.h/2,gait:r.g,
     walk:r.og&&Math.abs(r.vx)>50,air:!r.og,t:time,lean:r.ti*.11,
@@ -1867,6 +1893,7 @@ function frame(now){
   ctx.save(); ctx.translate(-cam.x,0); drawGlows(); ctx.restore();
   if(state!=='wires') drawCursor();
   if(state==='play') drawOverlay();
+  if(state!=='play') keys.eHit=false;
   const pv=(state==='play')?'visible':'hidden';
   if(bp.style.visibility!==pv) bp.style.visibility=pv;
   if(state==='wires') drawWires();
