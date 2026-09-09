@@ -63,10 +63,13 @@ button.ghost:hover{color:#fff;transform:none;box-shadow:none}
 .helpbox b{color:#ffd166}
 .stats{display:flex;gap:1.6em;font-size:1.15em;color:#d6dcff}
 .stats b{color:#fff;display:block;font-size:1.5em}
-#btnLang{position:absolute;top:.55em;left:.7em;z-index:6;font-size:.8em;padding:.28em .9em;
-  background:rgba(11,16,41,.55);color:#ffd166;box-shadow:none;border:2px solid rgba(255,209,102,.4);
-  letter-spacing:.08em;font-weight:700;backdrop-filter:blur(4px)}
-#btnLang:hover{background:rgba(255,209,102,.16);transform:none;box-shadow:none}
+#langBox{position:absolute;top:.55em;left:.7em;z-index:6;display:flex;flex-direction:column;gap:.28em}
+#langBox button{font-size:.8em;padding:.3em 1em;background:rgba(11,16,41,.6);color:#ffd166;
+  box-shadow:none;border:2px solid rgba(255,209,102,.4);font-weight:700;letter-spacing:.04em;
+  backdrop-filter:blur(4px);white-space:nowrap;text-align:left}
+#langBox button:hover{background:rgba(255,209,102,.18);transform:none;box-shadow:none}
+#langMenu{display:flex;flex-direction:column;gap:.25em}
+#langMenu button{background:rgba(11,16,41,.85);font-weight:400}
 #btnPush{position:absolute;right:1em;bottom:1em;z-index:4;width:5.6em;height:5.6em;border-radius:50%;font-size:1.05em;display:none;background:#ff9db0;color:#4a0d1c;box-shadow:0 .3em 0 #c05f72}
 .touch #btnPush{display:block}
 #rotate{position:fixed;inset:0;z-index:99;background:#0b1029;color:#ffd166;display:none;
@@ -125,7 +128,7 @@ html,body{overscroll-behavior:none}
 <body>
 <div id="app"><div id="stage">
   <canvas id="game" width="960" height="540"></canvas>
-  <button id="btnLang">EN</button>
+  <div id="langBox"><button id="btnLang">Русский</button><div id="langMenu" class="hidden"><button data-l="ru">Русский</button><button data-l="en">English</button></div></div>
 
   <div id="hud" class="hidden">
     <div><button id="btnMenu">☰</button><span id="hudLevel">Уровень 1</span><span id="hudCo"></span></div>
@@ -161,6 +164,7 @@ html,body{overscroll-behavior:none}
       &nbsp;&nbsp;&nbsp;Кликни <b>под ним</b> — подбросишь вверх.<br>
       <b>Пробел</b> — способность робота. У Бобби толчок, у Гайки ранец.<br>
       <b>E</b> — починить щиток у запертой двери.<br>
+      <b>Паук</b> — боится света. Посвети прямо на него, и он спрячется.<br>
       <b>Вдвоём:</b> каждый ведёт своего робота и видит чужого, только посветив на него.<br>
       <b>Esc</b> — пауза, <b>R</b> — заново, <b>S</b> — звук.<br>
       <span class="tiny">Бобби слеп к опасностям, залипает на бабочках,<br>устаёт от долгой ходьбы и панически боится пауков.</span>
@@ -237,7 +241,7 @@ html,body{overscroll-behavior:none}
 <script>
 'use strict';
 /* ─────────── два языка ─────────── */
-const I18N={"Уровень 1":"Level 1","Уровень ":"Level ","ТОЛЧОК":"SHOVE","ЛЁТ":"FLY","смотришь за другом · Esc — назад":"watching your friend · Esc — back","БОББИ":"BOBBY","ищет солнце":"seeks the sun","Бобби идёт туда, где твоя мышь.":"Bobby walks wherever your mouse is.","Бобби не смотрит под ноги.":"Bobby never looks down.","Ты его бог. Ты его единственная надежда.":"You are his god. You are his only hope.","ИГРАТЬ":"PLAY","ИГРАТЬ ВДВОЁМ":"PLAY TOGETHER","УРОВНИ":"LEVELS","РОБОТ":"ROBOT","КАК ИГРАТЬ":"HOW TO PLAY","Войти через Google":"Sign in with Google","сбросить прогресс":"reset progress","💾 прогресс сохраняется в этом браузере":"💾 progress is saved in this browser","☁ прогресс сохраняется в аккаунте":"☁ progress is saved to your account","☁ загружаю прогресс...":"☁ loading progress...","☁ прогресс в аккаунте Google":"☁ progress synced with Google","☁ ошибка чтения: ":"☁ read error: ","Не вышло войти: ":"Sign-in failed: ","Выйти · ":"Sign out · ","аккаунт":"account","100 УРОВНЕЙ":"100 LEVELS","НАЗАД":"BACK","ПОНЯЛ":"GOT IT","ГОТОВО":"DONE","ГОТОВ":"READY","Мышь":"Mouse","— Бобби всегда идёт к курсору.":"— Bobby always walks toward the cursor.","Курсор выше":"Cursor higher","— Бобби прыгает. Чем выше, тем сильнее.":"— Bobby jumps. The higher, the stronger.","ЛКМ":"LMB","— божественный толчок: отбрасывает Бобби":"— divine shove: pushes Bobby","от":"away from","курсора.":"the cursor.","Кликни":"Click","под ним":"beneath him","— подбросишь вверх.":"— and you launch him upward.","Пробел":"Space","— способность робота. У Бобби толчок, у Гайки ранец.":"— robot ability. Bobby shoves, Gaika flies.","— починить щиток у запертой двери.":"— repair the panel at a locked door.","Вдвоём:":"Together:","каждый ведёт своего робота и видит чужого, только посветив на него.":"each player leads their own robot and sees the other only by shining light on them.","— пауза,":"— pause,","— заново,":"— restart,","— звук.":"— sound.","Бобби слеп к опасностям, залипает на бабочках,":"Bobby is blind to danger, gets mesmerised by moths,","устаёт от долгой ходьбы и панически боится пауков.":"overheats from long walks and is terrified of spiders.","Двое ведут своих роботов по одному уровню.":"Two players lead their robots through one level.","Каждый светит только своему.":"Each lights only their own.","СОЗДАТЬ ЛОББИ":"CREATE LOBBY","ВВЕСТИ КОД":"ENTER CODE","назад":"back","КОД ЛОББИ":"LOBBY CODE","Скажи этот код другу":"Give this code to your friend","ждём второго игрока...":"waiting for the second player...","отмена":"cancel","ВВЕДИ КОД":"ENTER THE CODE","ПОДКЛЮЧИТЬСЯ":"CONNECT","ВЫБЕРИ РОБОТА":"CHOOSE YOUR ROBOT","ты:":"you:","друг:":"friend:","выбирает...":"choosing...","УРОВЕНЬ ПРОЙДЕН":"LEVEL COMPLETE","Ждём друга.":"Waiting for your friend.","СМОТРЕТЬ ЗА ДРУГОМ":"WATCH YOUR FRIEND","ЖДЁМ ДРУГА...":"WAITING...","ПАУЗА":"PAUSED","Бобби ждёт.":"Bobby is waiting.","ПРОДОЛЖИТЬ":"RESUME","ЗАНОВО":"RESTART","В МЕНЮ":"MENU","Esc — продолжить":"Esc — resume","ГОТОВО!":"DONE!","ХОРОШО!":"GOOD!","ИДЕАЛЬНО!":"PERFECT!","Бобби выжил. Сам он не понял как.":"Bobby survived. He has no idea how.","Быстро. Он даже не успел испугаться.":"Fast. He barely had time to be scared.","Ни одной смерти. Ты хороший бог.":"Not a single death. You are a good god.","время":"time","смертей":"deaths"," · смертей ":" · deaths ","ДАЛЬШЕ →":"NEXT →","Поверни телефон":"Rotate your phone","игра работает горизонтально":"the game runs in landscape","Стереть весь прогресс?":"Erase all progress?","Платформы теперь ездят.":"Platforms move now.","Треснувшие плиты падают через миг после шага.":"Cracked slabs fall a moment after you step on them.","Паук. Бобби паникует и убегает от него.":"A spider. Bobby panics and runs away.","Шипы бывают и на потолке. Не подбрасывай вслепую.":"Spikes hang from ceilings too. Don't launch him blindly.","Веди мышь — свет ведёт Бобби. Дойди до двери.":"Move the mouse — the light leads Bobby. Reach the door.","Подними курсор выше — и Бобби прыгнет. Чем выше, тем сильнее.":"Raise the cursor — Bobby jumps. The higher, the stronger.","Он НЕ видит шипы. Посвети вперёд и перепрыгни.":"He does NOT see the spikes. Shine ahead and jump over.","Высоко. ЛКМ — толчок: кликни ПОД Бобби, чтобы подбросить.":"Too high. LMB is a shove: click BENEATH Bobby to launch him.","Пила светится сама. Она его не пожалеет.":"The saw glows on its own. It will not spare him.","Бабочка светится и Бобби на неё залипает. Терпи.":"The moth glows and Bobby gets mesmerised. Be patient.","Дверь заперта. Подойди к щитку и нажми E.":"The door is locked. Walk to the panel and press E.","СВЕТ ЕСТЬ. ИДУ.":"LIGHT FOUND. WALKING.","...где ты?":"...where are you?","ОШИБКА. БАБОЧКА.":"ERROR. BUTTERFLY.","перегрев...":"overheating...","ДВЕРЬ! Я НАШЁЛ ДВЕРЬ!":"A DOOR! I FOUND A DOOR!","Тут кто-то был... до меня.":"Someone was here... before me.","Я запомнил это место.":"I remembered this place.","Это не твоя вина.":"It is not your fault.","Перезапуск. Я в порядке!":"Rebooting. I am fine!","Ого-о!":"Whoa-a!","ЛОГ №41: я видел свет наверху. один раз. я не смог дойти.":"LOG 41: I saw the light above. once. I could not reach it.","ЛОГ №17: не иди за светом, который не зовёт тебя.":"LOG 17: do not follow a light that is not calling you.","здесь стоял БЛОК-9. он ждал свой свет 4000 часов.":"BLOCK-9 stood here. it waited for its light for 4000 hours.","старший говорил: солнце — это лампа, которую нельзя выключить.":"the elder said: the sun is a lamp that cannot be switched off.","наверх шли все. наверх дошли не все.":"everyone walked upward. not everyone arrived.","ЛОГ №3: если твой свет ошибается — он всё равно твой свет.":"LOG 3: if your light makes mistakes — it is still your light.","я чувствую тепло на корпусе. значит, уже близко.":"I feel warmth on my shell. that means it is close.","ЛОГ последний: когда выйдешь — не оборачивайся. ему будет больно.":"FINAL LOG: when you get out — do not look back. it will hurt him.","ВЫХОД":"EXIT","ГАЙКА":"GAIKA","Классик":"Classic","Ржавый":"Rusty","Мятный":"Mint","Ночной":"Midnight","Золотой":"Golden","Вишня":"Cherry","Бобби потерял свет — подойди ближе":"Bobby lost the light — come closer","Дверь открылась.":"The door opened.","За ней не было потолка.":"Behind it there was no ceiling.","Бобби впервые увидел свет, который не двигался за курсором.":"For the first time Bobby saw a light that did not follow a cursor.","Он обернулся, чтобы сказать спасибо.":"He turned around to say thank you.","Но при солнце тебя не видно.":"But in sunlight you cannot be seen.","Ты всё ещё здесь.":"You are still here.","Просто теперь он дойдёт сам.":"He just does not need you to walk anymore.","СПАСИБО, ЧТО ВЁЛ ЕГО.":"THANK YOU FOR LEADING HIM.","нажми Esc — вернуться в меню":"press Esc to return to the menu","СОЕДИНИ ПРОВОДА":"CONNECT THE WIRES","щиток закрывается...":"panel closing...","тяни от левой клеммы к правой того же цвета  ·  Esc — выйти":"drag from a left terminal to the right one of the same colour  ·  Esc — exit","Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.":"Co-op needs the standalone site — the connection is blocked inside this preview.","Кооп не загрузился. Он работает на сайте игры, а не в предпросмотре.":"Co-op failed to load. It works on the game site, not in a preview.","Кооп работает на сайте игры, а не в предпросмотре.":"Co-op works on the game site, not in a preview.","Не вышло создать лобби.":"Could not create the lobby.","ошибка: ":"error: ","связь":"connection","Код из четырёх символов.":"The code is four characters.","подключаюсь...":"connecting...","Не вышло подключиться.":"Could not connect.","Лобби с таким кодом не найдено.":"No lobby found with that code.","Ошибка связи.":"Connection error.","друг отключился — ждём 20 секунд...":"your friend disconnected — waiting 20 seconds...","Оба дошли! Следующий уровень...":"Both made it! Next level...","· 2 игрока":"· 2 players","Вы прошли все сто уровней. Вдвоём.":"You finished all one hundred levels. Together."};
+const I18N={"Уровень 1":"Level 1","Уровень ":"Level ","ТОЛЧОК":"SHOVE","ЛЁТ":"FLY","смотришь за другом · Esc — назад":"watching your friend · Esc — back","БОББИ":"BOBBY","ищет солнце":"seeks the sun","Бобби идёт туда, где твоя мышь.":"Bobby walks wherever your mouse is.","Бобби не смотрит под ноги.":"Bobby never looks down.","Ты его бог. Ты его единственная надежда.":"You are his god. You are his only hope.","ИГРАТЬ":"PLAY","ИГРАТЬ ВДВОЁМ":"PLAY TOGETHER","УРОВНИ":"LEVELS","РОБОТ":"ROBOT","КАК ИГРАТЬ":"HOW TO PLAY","Войти через Google":"Sign in with Google","сбросить прогресс":"reset progress","💾 прогресс сохраняется в этом браузере":"💾 progress is saved in this browser","☁ прогресс сохраняется в аккаунте":"☁ progress is saved to your account","☁ загружаю прогресс...":"☁ loading progress...","☁ прогресс в аккаунте Google":"☁ progress synced with Google","☁ ошибка чтения: ":"☁ read error: ","Не вышло войти: ":"Sign-in failed: ","Выйти · ":"Sign out · ","аккаунт":"account","100 УРОВНЕЙ":"100 LEVELS","НАЗАД":"BACK","ПОНЯЛ":"GOT IT","ГОТОВО":"DONE","ГОТОВ":"READY","Мышь":"Mouse","— Бобби всегда идёт к курсору.":"— Bobby always walks toward the cursor.","Курсор выше":"Cursor higher","— Бобби прыгает. Чем выше, тем сильнее.":"— Bobby jumps. The higher, the stronger.","ЛКМ":"LMB","— божественный толчок: отбрасывает Бобби":"— divine shove: pushes Bobby","от":"away from","курсора.":"the cursor.","Паук":"Spider","— боится света. Посвети прямо на него, и он спрячется.":"— afraid of light. Shine straight at it and it will hide.","Кликни":"Click","под ним":"beneath him","— подбросишь вверх.":"— and you launch him upward.","Пробел":"Space","— способность робота. У Бобби толчок, у Гайки ранец.":"— robot ability. Bobby shoves, Gaika flies.","— починить щиток у запертой двери.":"— repair the panel at a locked door.","Вдвоём:":"Together:","каждый ведёт своего робота и видит чужого, только посветив на него.":"each player leads their own robot and sees the other only by shining light on them.","— пауза,":"— pause,","— заново,":"— restart,","— звук.":"— sound.","Бобби слеп к опасностям, залипает на бабочках,":"Bobby is blind to danger, gets mesmerised by moths,","устаёт от долгой ходьбы и панически боится пауков.":"overheats from long walks and is terrified of spiders.","Двое ведут своих роботов по одному уровню.":"Two players lead their robots through one level.","Каждый светит только своему.":"Each lights only their own.","СОЗДАТЬ ЛОББИ":"CREATE LOBBY","ВВЕСТИ КОД":"ENTER CODE","назад":"back","КОД ЛОББИ":"LOBBY CODE","Скажи этот код другу":"Give this code to your friend","ждём второго игрока...":"waiting for the second player...","отмена":"cancel","ВВЕДИ КОД":"ENTER THE CODE","ПОДКЛЮЧИТЬСЯ":"CONNECT","ВЫБЕРИ РОБОТА":"CHOOSE YOUR ROBOT","ты:":"you:","друг:":"friend:","выбирает...":"choosing...","УРОВЕНЬ ПРОЙДЕН":"LEVEL COMPLETE","Ждём друга.":"Waiting for your friend.","СМОТРЕТЬ ЗА ДРУГОМ":"WATCH YOUR FRIEND","ЖДЁМ ДРУГА...":"WAITING...","ПАУЗА":"PAUSED","Бобби ждёт.":"Bobby is waiting.","ПРОДОЛЖИТЬ":"RESUME","ЗАНОВО":"RESTART","В МЕНЮ":"MENU","Esc — продолжить":"Esc — resume","ГОТОВО!":"DONE!","ХОРОШО!":"GOOD!","ИДЕАЛЬНО!":"PERFECT!","Бобби выжил. Сам он не понял как.":"Bobby survived. He has no idea how.","Быстро. Он даже не успел испугаться.":"Fast. He barely had time to be scared.","Ни одной смерти. Ты хороший бог.":"Not a single death. You are a good god.","время":"time","смертей":"deaths"," · смертей ":" · deaths ","ДАЛЬШЕ →":"NEXT →","Поверни телефон":"Rotate your phone","игра работает горизонтально":"the game runs in landscape","Стереть весь прогресс?":"Erase all progress?","Платформы теперь ездят.":"Platforms move now.","Треснувшие плиты падают через миг после шага.":"Cracked slabs fall a moment after you step on them.","Паук. Бобби паникует и убегает от него. Посвети на паука — он спрячется.":"A spider. Bobby panics and runs. Shine on the spider and it hides.","Шипы бывают и на потолке. Не подбрасывай вслепую.":"Spikes hang from ceilings too. Don't launch him blindly.","Веди мышь — свет ведёт Бобби. Дойди до двери.":"Move the mouse — the light leads Bobby. Reach the door.","Подними курсор выше — и Бобби прыгнет. Чем выше, тем сильнее.":"Raise the cursor — Bobby jumps. The higher, the stronger.","Он НЕ видит шипы. Посвети вперёд и перепрыгни.":"He does NOT see the spikes. Shine ahead and jump over.","Высоко. ЛКМ — толчок: кликни ПОД Бобби, чтобы подбросить.":"Too high. LMB is a shove: click BENEATH Bobby to launch him.","Пила светится сама. Она его не пожалеет.":"The saw glows on its own. It will not spare him.","Бабочка светится и Бобби на неё залипает. Терпи.":"The moth glows and Bobby gets mesmerised. Be patient.","Дверь заперта. Подойди к щитку и нажми E.":"The door is locked. Walk to the panel and press E.","СВЕТ ЕСТЬ. ИДУ.":"LIGHT FOUND. WALKING.","...где ты?":"...where are you?","ОШИБКА. БАБОЧКА.":"ERROR. BUTTERFLY.","перегрев...":"overheating...","ДВЕРЬ! Я НАШЁЛ ДВЕРЬ!":"A DOOR! I FOUND A DOOR!","Тут кто-то был... до меня.":"Someone was here... before me.","Я запомнил это место.":"I remembered this place.","Это не твоя вина.":"It is not your fault.","Перезапуск. Я в порядке!":"Rebooting. I am fine!","Ого-о!":"Whoa-a!","ЛОГ №41: я видел свет наверху. один раз. я не смог дойти.":"LOG 41: I saw the light above. once. I could not reach it.","ЛОГ №17: не иди за светом, который не зовёт тебя.":"LOG 17: do not follow a light that is not calling you.","здесь стоял БЛОК-9. он ждал свой свет 4000 часов.":"BLOCK-9 stood here. it waited for its light for 4000 hours.","старший говорил: солнце — это лампа, которую нельзя выключить.":"the elder said: the sun is a lamp that cannot be switched off.","наверх шли все. наверх дошли не все.":"everyone walked upward. not everyone arrived.","ЛОГ №3: если твой свет ошибается — он всё равно твой свет.":"LOG 3: if your light makes mistakes — it is still your light.","я чувствую тепло на корпусе. значит, уже близко.":"I feel warmth on my shell. that means it is close.","ЛОГ последний: когда выйдешь — не оборачивайся. ему будет больно.":"FINAL LOG: when you get out — do not look back. it will hurt him.","ВЫХОД":"EXIT","ГАЙКА":"GAIKA","Классик":"Classic","Ржавый":"Rusty","Мятный":"Mint","Ночной":"Midnight","Золотой":"Golden","Вишня":"Cherry","Бобби потерял свет — подойди ближе":"Bobby lost the light — come closer","Дверь открылась.":"The door opened.","За ней не было потолка.":"Behind it there was no ceiling.","Бобби впервые увидел свет, который не двигался за курсором.":"For the first time Bobby saw a light that did not follow a cursor.","Он обернулся, чтобы сказать спасибо.":"He turned around to say thank you.","Но при солнце тебя не видно.":"But in sunlight you cannot be seen.","Ты всё ещё здесь.":"You are still here.","Просто теперь он дойдёт сам.":"He just does not need you to walk anymore.","СПАСИБО, ЧТО ВЁЛ ЕГО.":"THANK YOU FOR LEADING HIM.","нажми Esc — вернуться в меню":"press Esc to return to the menu","СОЕДИНИ ПРОВОДА":"CONNECT THE WIRES","щиток закрывается...":"panel closing...","тяни от левой клеммы к правой того же цвета  ·  Esc — выйти":"drag from a left terminal to the right one of the same colour  ·  Esc — exit","Кооп работает на сайте игры: damirloboda.github.io/bobby-sun — внутри Claude связь между браузерами заблокирована.":"Co-op needs the standalone site — the connection is blocked inside this preview.","Кооп не загрузился. Он работает на сайте игры, а не в предпросмотре.":"Co-op failed to load. It works on the game site, not in a preview.","Кооп работает на сайте игры, а не в предпросмотре.":"Co-op works on the game site, not in a preview.","Не вышло создать лобби.":"Could not create the lobby.","ошибка: ":"error: ","связь":"connection","Код из четырёх символов.":"The code is four characters.","подключаюсь...":"connecting...","Не вышло подключиться.":"Could not connect.","Лобби с таким кодом не найдено.":"No lobby found with that code.","Ошибка связи.":"Connection error.","друг отключился — ждём 20 секунд...":"your friend disconnected — waiting 20 seconds...","Оба дошли! Следующий уровень...":"Both made it! Next level...","· 2 игрока":"· 2 players","Вы прошли все сто уровней. Вдвоём.":"You finished all one hundred levels. Together."};
 let LANG='ru';
 try{ LANG=localStorage.getItem('bobby_lang')||'ru'; }catch(e){}
 function tr(x){ if(LANG!=='en'||typeof x!=='string') return x;
@@ -248,6 +252,7 @@ function walkText(root,fn){ if(!root)return;
 function applyLangDOM(){
   [document.getElementById('app'),document.getElementById('rotate')].forEach(function(root){
     walkText(root,function(n){
+      if(n.parentElement&&n.parentElement.closest('#langBox')) return;
       if(n.__ru===undefined) n.__ru=n.nodeValue;
       const src=n.__ru, key=src.trim();
       if(!key) return;
@@ -255,7 +260,7 @@ function applyLangDOM(){
       n.nodeValue=src.replace(key,out);
     });
   });
-  const b=document.getElementById('btnLang'); if(b) b.textContent=(LANG==='en'?'RU':'EN');
+  const b=document.getElementById('btnLang'); if(b) b.textContent=(LANG==='en'?'English':'Русский');
   document.documentElement.lang=LANG;
 }
 function setLang(l){
@@ -274,7 +279,7 @@ function clampN(v,a,b){ return v<a?a:v>b?b:v; }
 const cv=document.getElementById('game'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
 const $=id=>document.getElementById(id);
-const bp=$('btnPush'), bl=$('btnLang');
+const bp=$('btnPush'), bl=$('langBox');
 
 // теневой холст для темноты
 const dcv=document.createElement('canvas'); dcv.width=W; dcv.height=H;
@@ -400,7 +405,7 @@ function P(x,y,w,type,opt){
 const SP=(x,y,w,down)=>({type:'spike',x,y:down?y:y-13,w,h:13,down:!!down});
 const SAW=(ax,ay,bx,by,r,speed,phase)=>({type:'saw',ax,ay,bx,by,r:r||20,speed:speed||1,phase:phase||0});
 
-const INTRO={14:'Платформы теперь ездят.',30:'Треснувшие плиты падают через миг после шага.',38:'Паук. Бобби паникует и убегает от него.',
+const INTRO={14:'Платформы теперь ездят.',30:'Треснувшие плиты падают через миг после шага.',38:'Паук. Бобби паникует и убегает от него. Посвети на паука — он спрячется.',
   48:'Шипы бывают и на потолке. Не подбрасывай вслепую.'};
 
 function tutorial(n){
@@ -554,7 +559,7 @@ function doPush(){
   const p=470+400*k;
   hero.vx=clamp(hero.vx+nx*p,-540,540);
   hero.vy=clamp(hero.vy+ny*p*1.08,-840,520);
-  hero.onGround=false; hero.tired=0; hero.distract=0; hero.walked=0;
+  hero.onGround=false; hero.tired=0; hero.distract=0; hero.walked=0; hero.scared=0;
   hero.squash=-1; hero.pushCd=.65; hero.pushMax=.65; sfx.push();
 }
 
@@ -642,7 +647,11 @@ function think(dt){
 
   // паук → паника
   let near=null,nd=1e9;
-  for(const s of L.spiders){ const d2=dist(s.x,s.y,hero.x,hero.y); if(d2<nd){nd=d2;near=s;} }
+  for(const s of L.spiders){
+    s.lit=dist(mouse.x,mouse.y,s.x,s.y)<88;      // свет прогоняет паука
+    s.hide=lerp(s.hide||0, s.lit?1:0, Math.min(1,7*dt));
+    if(s.lit) continue;
+    const d2=dist(s.x,s.y,hero.x,hero.y); if(d2<nd){nd=d2;near=s;} }
   if(near&&nd<135){ if(hero.scared<=0) sfx.scare();
     hero.scared=Math.max(hero.scared,.45); hero.fleeFrom=near; emote('fear');
     if(Math.random()<.02) say('!!!',1); }
@@ -918,16 +927,22 @@ function drawSaw(h){
   ctx.restore();
 }
 function drawSpider(s){
-  const b=Math.sin(s.t+time*2)*2;
-  ctx.strokeStyle='#1a1d26'; ctx.lineWidth=2.4;
+  const h=s.hide||0;                       // 0 — злой, 1 — сжался от света
+  const b=Math.sin(s.t+time*2)*(2-1.5*h)+h*4;
+  const reach=1-0.52*h, sq=1-0.28*h;
+  ctx.strokeStyle='#1a1d26'; ctx.lineWidth=2.4-0.6*h;
   for(let i=0;i<4;i++){ const a=.5+i*.42;
-    ctx.beginPath(); ctx.moveTo(s.x,s.y+b); ctx.lineTo(s.x-Math.cos(a)*17,s.y+b-6);
-    ctx.lineTo(s.x-Math.cos(a)*22,s.y+b+9); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(s.x,s.y+b); ctx.lineTo(s.x+Math.cos(a)*17,s.y+b-6);
-    ctx.lineTo(s.x+Math.cos(a)*22,s.y+b+9); ctx.stroke(); }
-  ctx.fillStyle='#15181f'; ctx.beginPath(); ctx.ellipse(s.x,s.y+b,12,10,0,0,7); ctx.fill();
-  ctx.fillStyle='#ff3b3b';
-  for(let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(s.x-5+i*3.4,s.y+b-3,1.5,0,7); ctx.fill(); }
+    ctx.beginPath(); ctx.moveTo(s.x,s.y+b);
+    ctx.lineTo(s.x-Math.cos(a)*17*reach,s.y+b-6*reach);
+    ctx.lineTo(s.x-Math.cos(a)*22*reach,s.y+b+9*reach); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s.x,s.y+b);
+    ctx.lineTo(s.x+Math.cos(a)*17*reach,s.y+b-6*reach);
+    ctx.lineTo(s.x+Math.cos(a)*22*reach,s.y+b+9*reach); ctx.stroke(); }
+  ctx.fillStyle='#15181f'; ctx.beginPath();
+  ctx.ellipse(s.x,s.y+b,12*sq,10*sq,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba('+Math.round(255-120*h)+',59,59,'+(1-0.65*h)+')';
+  for(let i=0;i<4;i++){ ctx.beginPath();
+    ctx.arc(s.x-5*sq+i*3.4*sq,s.y+b-3*sq,1.5*sq,0,7); ctx.fill(); }
 }
 function drawMoth(b){
   const flap=Math.abs(Math.sin(b.t*11));          // 0 — крылья сомкнуты, 1 — раскрыты
@@ -1281,7 +1296,7 @@ function drawGlows(){
   }
   for(const b of bfs){ const f=Math.abs(Math.sin(b.t*11));
     glow(b.x,b.y,52+9*(1-f),'rgba(150,225,255,%A%)',.40+.17*(1-f)); }
-  for(const s of L.spiders) glow(s.x,s.y-4,20,'rgba(255,40,40,%A%)',.35);
+  for(const s of L.spiders) glow(s.x,s.y-4,20,'rgba(255,40,40,%A%)',.35*(1-(s.hide||0)*.8));
   for(const c of L.checks) glow(c.x,c.y-34,c.on?52:20,c.on?'rgba(110,255,150,%A%)':'rgba(255,80,80,%A%)',c.on?.45:.22);
   if(L.note) glow(L.note.x,L.note.y-16,40,'rgba(110,180,255,%A%)',.32);
   if(L.door){
@@ -1976,7 +1991,8 @@ function frame(now){
   const pv=(state==='play')?'visible':'hidden';
   if(bp.style.visibility!==pv) bp.style.visibility=pv;
   const lv=(state==='play'||state==='ending'||state==='wires')?'hidden':'visible';
-  if(bl&&bl.style.visibility!==lv) bl.style.visibility=lv;
+  if(bl&&bl.style.visibility!==lv){ bl.style.visibility=lv;
+    if(lv==='hidden') $('langMenu').classList.add('hidden'); }
   if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
   if(!$('coPick').classList.contains('hidden')) drawCoPrev();
@@ -2025,7 +2041,9 @@ async function initCloud(){
 initCloud();
 
 applyLangDOM();
-$('btnLang').onclick=()=>setLang(LANG==='en'?'ru':'en');
+$('btnLang').onclick=()=>$('langMenu').classList.toggle('hidden');
+$('langMenu').querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{ setLang(b.dataset.l); $('langMenu').classList.add('hidden'); }; });
 showMenu();
 requestAnimationFrame(frame);
 </script>
@@ -2048,7 +2066,7 @@ const FB  = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 if (!firebaseConfig.apiKey) {
   btn.style.display = 'none';
-  tag.textContent = '💾 прогресс сохраняется в этом браузере';
+  tag.textContent=tr('💾 прогресс сохраняется в этом браузере');
 } else {
   try {
     const { initializeApp } = await import(FB + 'firebase-app.js');
@@ -2064,25 +2082,25 @@ if (!firebaseConfig.apiKey) {
     btn.onclick = () => {
       if (auth.currentUser) signOut(auth);
       else signInWithPopup(auth, new GoogleAuthProvider())
-             .catch(e => { tag.textContent = 'Не вышло войти: ' + e.code; });
+             .catch(e => { tag.textContent=tr('Не вышло войти: ') + e.code; });
     };
 
     onAuthStateChanged(auth, async u => {
       if (!u) {
         ref = null;
-        btn.textContent = 'Войти через Google';
-        tag.textContent = '💾 прогресс сохраняется в этом браузере';
+        btn.textContent=tr('Войти через Google');
+        tag.textContent=tr('💾 прогресс сохраняется в этом браузере');
         return;
       }
-      btn.textContent = 'Выйти · ' + (u.displayName || 'аккаунт');
+      btn.textContent=tr('Выйти · ') + (u.displayName || 'аккаунт');
       ref = doc(fdb, 'saves', u.uid);
-      tag.textContent = '☁ загружаю прогресс...';
+      tag.textContent=tr('☁ загружаю прогресс...');
       try {
         const snap = await getDoc(ref);
         if (snap.exists()) window.BOBBY.applyRemote(snap.data());
-        tag.textContent = '☁ прогресс в аккаунте Google';
+        tag.textContent=tr('☁ прогресс в аккаунте Google');
         sync();
-      } catch (e) { tag.textContent = '☁ ошибка чтения: ' + e.code; }
+      } catch (e) { tag.textContent=tr('☁ ошибка чтения: ') + e.code; }
     });
 
     async function sync() {
@@ -2094,7 +2112,7 @@ if (!firebaseConfig.apiKey) {
     window.BOBBY.onChange(sync);
   } catch (e) {
     btn.style.display = 'none';
-    tag.textContent = '💾 прогресс сохраняется в этом браузере';
+    tag.textContent=tr('💾 прогресс сохраняется в этом браузере');
   }
 }
 </script>
