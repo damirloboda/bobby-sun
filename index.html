@@ -606,6 +606,7 @@ function buildLevel(n){
     } else { x+=w; }
   }
   alignMovers(L);
+  clearSaws(L);
   L.width=Math.max(W,x+60);
   return L;
 }
@@ -650,6 +651,49 @@ function alignMovers(L){
   }
 }
 
+// Пила качается по отрезку, а мост под ней ездит на всю ширину пролёта —
+// и лезвие оказывалось утоплено в платформу. Уводим пилу с высоты моста
+// вверх или вниз, туда, где она ближе к своему нынешнему месту.
+function clearSaws(L){
+  const band=p=>p.type==='move'
+    ? (p.axis==='x' ? {x:p.ox-p.range,y:p.oy,w:2*p.range+p.w,h:p.h}
+                    : {x:p.ox,y:p.oy-p.range,w:p.w,h:2*p.range+p.h})
+    : {x:p.x,y:p.y,w:p.w,h:p.h};
+  for(let pass=0;pass<3;pass++){
+    let moved=false;
+    for(const h of L.haz){
+      if(h.type!=='saw') continue;
+      for(const p of L.plats){
+        const R=band(p);
+        let deep=0;
+        for(let k=0;k<=16;k++){
+          const t=k/16, cx=h.ax+(h.bx-h.ax)*t, cy=h.ay+(h.by-h.ay)*t;
+          const nx=Math.max(R.x,Math.min(cx,R.x+R.w)), ny=Math.max(R.y,Math.min(cy,R.y+R.h));
+          deep=Math.max(deep,h.r-Math.hypot(cx-nx,cy-ny));
+        }
+        if(deep<=4) continue;
+        const mid=(h.ay+h.by)/2, m=h.r+8;
+        const up  =(R.y-m)-Math.max(h.ay,h.by);        // сдвиг, чтобы уйти выше площадки
+        const down=(R.y+R.h+m)-Math.min(h.ay,h.by);    // и чтобы уйти ниже
+        let d=(mid<R.y+R.h/2)?up:down;
+        if(Math.min(h.ay,h.by)+d<70||Math.max(h.ay,h.by)+d>520) d=(d===up)?down:up;
+        if(Math.min(h.ay,h.by)+d<70||Math.max(h.ay,h.by)+d>520){
+          // пиле некуда уйти — тогда подрезаем ход самого моста
+          if(p.type==='move'&&p.axis==='x'){
+            const sx0=Math.min(h.ax,h.bx)-h.r-2, sx1=Math.max(h.ax,h.bx)+h.r+2;
+            let lo=p.ox-p.range, hi=p.ox+p.range;
+            if(sx1<=p.ox+p.w/2) lo=Math.max(lo,sx1); else hi=Math.min(hi,sx0-p.w);
+            if(hi-lo>=24){ p.range=(hi-lo)/2; p.ox=(lo+hi)/2; p.x=p.ox; moved=true; }
+          }
+          continue;
+        }
+        h.ay+=d; h.by+=d; moved=true;
+      }
+    }
+    if(!moved) break;
+  }
+}
+
 // ───────── состояние ─────────
 const GRAV=1800, JUMP=690, SPEED=205, LEASH_SOFT=320, LEASH_HARD=460, FUEL=2.5;
 let state='menu', cur=1, L=null, time=0, lvlTime=0, lvlDeaths=0;
@@ -669,6 +713,7 @@ function startLevel(n,keepStats){
   hero.onGround=false; hero.airTime=0; hero.dead=0; hero.walked=0;
   hero.tired=0; hero.distract=0; hero.scared=0; hero.bfCd=0; hero.jumpCd=0;
   hero.pushCd=0; hero.lost=0; hero.rideId=null; hero.emote=null; hero.say=null;
+  hero.trail.length=0; hero.trailT=0;   // иначе за Гайкой тянется полоса от места смерти
   bfs.length=0; parts.length=0; shocks.length=0;
   cam.x=clamp(hero.x-W/2,0,L.width-W);
   if(!keepStats){ lvlTime=0; lvlDeaths=0; }
