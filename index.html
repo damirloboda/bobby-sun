@@ -407,21 +407,34 @@ addEventListener('mousedown',e=>{ if(usedTouch||e.button!==0) return; setPointer
   if(e.target===cv){ doPush(); e.preventDefault(); } });
 addEventListener('mouseup',()=>{ if(usedTouch) return; if(state==='wires') wireUp(); });
 
+// палец мог исчезнуть без touchend — край экрана, системный жест, свёрнутое окно.
+// Тогда id залипал и стик переставал принимать новые касания. Подбираем такие хвосты.
+function reapTouches(e){
+  const live=new Set(); for(const t of e.touches) live.add(t.identifier);
+  if(stickId!==null&&!live.has(stickId)){ stickId=null; stick.on=false; stick.dx=0; stick.dy=0; }
+  if(pushId!==null&&!live.has(pushId)){ pushId=null; keys.space=false; bp.classList.remove('down'); }
+}
+const uiEl=t=>{ const el=t.target; return el===bp||el===be||(bp&&bp.contains(el))||(be&&be.contains(el)); };
 // каждый палец живёт отдельно: стик не отбирает палец у кнопки и наоборот
-addEventListener('touchstart',e=>{ usedTouch=true;
+addEventListener('touchstart',e=>{ usedTouch=true; reapTouches(e);
   if(state==='wires'){ const t=e.changedTouches[0];
     if(t){ setPointer(t.clientX,t.clientY); wireDown(); } e.preventDefault(); return; }
+  if(state!=='play') return;                 // в меню касания принадлежат кнопкам
   for(const t of e.changedTouches){
-    if(t.target!==cv || stickId!==null) continue;
+    if(stickId!==null) break;
+    if(uiEl(t)) continue;                    // у кнопок свои обработчики
     const p=toCanvas(t.clientX,t.clientY);
     if(inStick(p)){ stickId=t.identifier; stickGrab(p); e.preventDefault(); }
   } },{passive:false});
-addEventListener('touchmove',e=>{
+addEventListener('touchmove',e=>{ reapTouches(e);
   if(state==='wires'){ const t=e.changedTouches[0];
     if(t) setPointer(t.clientX,t.clientY); e.preventDefault(); return; }
   for(const t of e.changedTouches)
     if(t.identifier===stickId){ stickGrab(toCanvas(t.clientX,t.clientY)); e.preventDefault(); }
   },{passive:false});
+// окно потеряло фокус — отпускаем всё, иначе стик залипнет
+addEventListener('blur',()=>{ stickId=null; stick.on=false; stick.dx=0; stick.dy=0;
+  pushId=null; if(bp) bp.classList.remove('down'); });
 function endTouch(e){
   if(state==='wires'){ wireUp(); return; }
   for(const t of e.changedTouches){
@@ -592,8 +605,49 @@ function buildLevel(n){
       x=nx; y=ny;
     } else { x+=w; }
   }
+  alignMovers(L);
   L.width=Math.max(W,x+60);
   return L;
+}
+
+// Генератор ставил движущиеся платформы по своей высотной последовательности,
+// а не по соседям: на посадке возникала ступенька до 91 px, лифты не садились
+// к площадке до 200 px, а ход не доставал до края. Досаживаем их на место.
+function alignMovers(L){
+  const ps=L.plats.slice().sort((a,b)=>a.x-b.x);
+  const solid=q=>!q.ceil;   // осыпающиеся и каталки тоже мешают ходу
+  for(const p of L.plats){
+    if(p.type!=='move') continue;
+    const left =ps.filter(q=>q!==p&&solid(q)&&q.x+q.w<=p.ox+2).sort((a,b)=>(b.x+b.w)-(a.x+a.w))[0];
+    const right=ps.filter(q=>q!==p&&solid(q)&&q.x>=p.ox+p.w-2).sort((a,b)=>a.x-b.x)[0];
+    const board=left||right;
+    if(!board) continue;
+    if(p.axis==='x'){
+      p.oy=board.y;                                   // вровень с той, с которой заходишь
+      let lo=left ? left.x+left.w : p.ox-p.range;
+      let hi=right? right.x-p.w   : p.ox+p.range;
+      // Ход ровно от края соседки до края соседки. В крайних положениях мост
+      // стыкуется встык с обеих сторон — зайти и сойти можно всегда.
+      if(hi-lo<30){ lo=Math.min(lo,p.ox-p.range); hi=Math.max(hi,p.ox+p.range); }
+      if(hi-lo>=30){
+        p.range=(hi-lo)/2; p.ox=(lo+hi)/2;
+        // длинный пролёт не должен превращаться в катапульту: держим линейную скорость
+        p.speed=Math.max(0.22,Math.min(p.speed,140/p.range));
+      }
+    } else {
+      const up=ps.filter(q=>q!==p&&solid(q)&&q.y<board.y-56&&
+                 q.x<p.ox+p.w+36&&q.x+q.w>p.ox-36).sort((a,b)=>b.y-a.y)[0];
+      let top=up?up.y:board.y-2*p.range;
+      for(const q of L.plats){                        // не протыкаем перекрытия по пути
+        if(q===p||Math.abs(q.y-board.y)<6) continue;
+        if(q.x<p.ox+p.w-6&&q.x+q.w>p.ox+6&&q.y<board.y-20&&q.y>top) top=q.y+q.h+2;
+      }
+      const half=(board.y-top)/2;
+      if(half>=Math.max(30,p.range)&&half<=230){ p.range=half; p.oy=(board.y+top)/2; }
+      else p.oy=board.y-p.range;                      // хотя бы низ хода вровень
+    }
+    p.x=p.ox; p.y=p.oy;
+  }
 }
 
 // ───────── состояние ─────────
