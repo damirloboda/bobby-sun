@@ -557,7 +557,7 @@ const PIECES=[
    A.plat(A.x,A.y,w1); A.plat(A.x+w1+g,A.y,w2);
    return {w:w1+g+w2,out:A.y}; }},
 
- {id:'stairsUp', hard:1, need:null, dy:-1, make(A){
+ {id:'stairsUp', hard:1, need:null, dy:-1, rise:156, make(A){
    let x=A.x, y=A.y;
    for(let i=0;i<3;i++){ A.plat(x,y,86); x+=86+56; if(i<2) y-=78; }
    return {w:x-A.x-56,out:y}; }},
@@ -587,7 +587,7 @@ const PIECES=[
    A.plat(A.x+w1+g,A.y,w2);
    return {w:w1+g+w2,out:A.y}; }},
 
- {id:'lift', hard:2, need:'move', dy:-1, make(A){
+ {id:'lift', hard:2, need:'move', dy:-1, rise:206, make(A){
    const w1=150, rise=150+A.rnd()*56, w2=160;
    A.plat(A.x,A.y,w1);
    const mx=A.x+w1+16;
@@ -623,7 +623,7 @@ const PIECES=[
    A.spider(A.x+w*0.55,A.y-16);
    return {w,out:A.y}; }},
 
- {id:'towerUp', hard:2, need:null, dy:-1, make(A){
+ {id:'towerUp', hard:2, need:null, dy:-1, rise:228, make(A){
    let x=A.x, y=A.y;
    A.plat(x,y,120); x+=120;
    for(let i=0;i<3;i++){ x+=52; y-=76; A.plat(x,y,96); x+=96; }
@@ -639,7 +639,7 @@ function buildLevel(n){
     plats:[],haz:[],spiders:[],butterflies:F.bfly&&(n===10||rnd()<0.45),start:null,exit:null};
 
   const A={x:0,y:430,d,rnd,
-    plat:(x,y,w,type,opt)=>{ L.plats.push(P(Math.round(x),Math.round(y),Math.round(w),type,opt)); },
+    plat:(x,y,w,type,opt)=>{ L.plats.push(P(Math.round(x),Math.round(clamp(y,96,470)),Math.round(w),type,opt)); },
     spike:(x,y,w,down)=>{ L.haz.push(SP(Math.round(x),Math.round(y),Math.round(w),down)); },
     saw:(ax,ay,bx,by,r,sp,ph)=>{ L.haz.push(SAW(ax,ay,bx,by,r,sp,ph)); },
     spider:(x,y)=>{ L.spiders.push({x:Math.round(x),y:Math.round(y),t:rnd()*6}); }};
@@ -662,7 +662,7 @@ function buildLevel(n){
         if(p.id==='spiderDen'&&spiders>=2) return false;
         if(p.hard>=2&&sinceRest<1) return false;           // после тяжёлого — передышка
         if(p.hard>1&&d<0.12) return false;                 // на первых уровнях без злого
-        if(p.dy===-1&&y<210) return false;                 // выше некуда
+        if(p.dy===-1&&y-(p.rise||0)<96) return false;      // упрёмся в потолок цеха
         if(p.dy===1&&y>440) return false;                  // ниже некуда
         return true;
       });
@@ -697,12 +697,13 @@ function buildLevel(n){
   // россыпь шипов по широким площадкам: без неё уровень пустой
   const firstP=L.plats[0];
   for(const p of L.plats){
-    if(p===firstP||p.type!=='solid'||p.ceil||p.w<150) continue;
+    if(p===firstP||p.type!=='solid'||p.ceil||p.w<215) continue;
     if(L.haz.some(h=>h.type==='spike'&&h.x<p.x+p.w&&h.x+h.w>p.x)) continue;
     if(L.haz.some(h=>h.type==='saw'&&Math.min(h.ax,h.bx)<p.x+p.w+30&&Math.max(h.ax,h.bx)>p.x-30)) continue;
-    if(rnd()>0.22+0.40*d) continue;
-    const sw=36+rnd()*34;
-    A.spike(p.x+70+rnd()*(p.w-140-sw),p.y,sw);
+    if(rnd()>0.20+0.34*d) continue;
+    const sw=36+rnd()*30;
+    // с обоих краёв оставляем место, чтобы приземление никогда не было на шип
+    A.spike(p.x+95+rnd()*(p.w-190-sw),p.y,sw);
   }
   // финишная площадка — тоже широкая и чистая
   A.plat(x,y,200);
@@ -751,7 +752,12 @@ function alignMovers(L){
       if(half>=Math.max(30,p.range)&&half<=230){ p.range=half; p.oy=(board.y+top)/2; }
       else p.oy=board.y-p.range;                      // хотя бы низ хода вровень
     }
-    p.x=p.ox; p.y=p.oy;
+    // Позиция качающейся платформы считается от фазы. Если оставить x=ox,
+    // то на первом же кадре она прыгает в свою настоящую точку — до range
+    // пикселей разом — и дёргает вместе с собой всех, кто на ней стоит.
+    const t0=time*p.speed+p.phase;
+    p.x=p.axis==='x'?p.ox+Math.sin(t0)*p.range:p.ox;
+    p.y=p.axis==='y'?p.oy+Math.sin(t0)*p.range:p.oy;
   }
 }
 
@@ -1187,12 +1193,20 @@ function decorate(){
   L.checks=[]; L.note=null; L.spawn={x:L.start.x,y:L.start.y};
   const path=L.plats.filter((p,i)=>!p.ceil&&i>0&&i<L.plats.length-1&&p.type==='solid'&&p.w>=95);
   const hasSpider=p=>(L.spiders||[]).some(s=>s.x>p.x-24&&s.x<p.x+p.w+24&&Math.abs(s.y-p.y)<52);
-  for(let i=1;i<path.length;i+=2){
-    let p=path[i];
-    if(hasSpider(p)){ if(path[i+1]&&!hasSpider(path[i+1])) p=path[i+1]; else continue; }
-    const x=freeSpot(p,30);
-    if(x!==null) L.checks.push({x,y:p.y,on:false});
+  // Раньше чекпойнт вешался на каждую вторую подходящую площадку по номеру,
+  // из-за чего они сбивались к концу уровня, где уже не нужны. Теперь их
+  // расставляем равномерно по длине и не ставим в последней пятой части.
+  const cn=clamp(Math.round(L.width/1500),1,4), used=new Set();
+  for(let k=0;k<cn;k++){
+    const target=L.width*(k+1)/(cn+1);
+    const cand=path.filter(p=>!used.has(p)&&p.x+p.w<L.width*0.82&&!hasSpider(p))
+                   .sort((a,b)=>Math.abs(a.x+a.w/2-target)-Math.abs(b.x+b.w/2-target));
+    for(const p of cand){
+      const x=freeSpot(p,30);
+      if(x!==null){ used.add(p); L.checks.push({x,y:p.y,on:false}); break; }
+    }
   }
+  L.checks.sort((a,b)=>a.x-b.x);
   const nt=NOTES[L.n];
   if(nt&&L.plats.length>2){
     const p=L.plats[1], x=freeSpot(p,26);
