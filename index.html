@@ -537,6 +537,99 @@ function tutorial(n){
   return null;
 }
 
+// Уровень собирается не случайным блужданием, а из кусков — маленьких
+// задач с понятным входом и выходом, как в туториалах 1–6. Между тяжёлыми
+// кусками ставится передышка, высота держится в рабочем диапазоне.
+const JGAP=118, JRISE=92;          // сколько Бобби реально берёт: прыжок ~141 по земле, апекс ~127
+
+const PIECES=[
+ {id:'flat', hard:0, need:null, make(A){
+   const w=210+A.rnd()*110; A.plat(A.x,A.y,w); return {w,out:A.y}; }},
+
+ {id:'spikes', hard:1, need:null, make(A){
+   const w=280+A.rnd()*90, sw=40+A.rnd()*36;
+   A.plat(A.x,A.y,w);
+   A.spike(A.x+96+A.rnd()*(w-200-sw),A.y,sw);
+   return {w,out:A.y}; }},
+
+ {id:'gap', hard:1, need:null, make(A){
+   const w1=130+A.rnd()*50, g=84+A.rnd()*30, w2=140+A.rnd()*50;
+   A.plat(A.x,A.y,w1); A.plat(A.x+w1+g,A.y,w2);
+   return {w:w1+g+w2,out:A.y}; }},
+
+ {id:'stairsUp', hard:1, need:null, dy:-1, make(A){
+   let x=A.x, y=A.y;
+   for(let i=0;i<3;i++){ A.plat(x,y,86); x+=86+56; if(i<2) y-=78; }
+   return {w:x-A.x-56,out:y}; }},
+
+ {id:'stairsDown', hard:1, need:null, dy:1, make(A){
+   let x=A.x, y=A.y;
+   for(let i=0;i<3;i++){ A.plat(x,y,94); x+=94+62; if(i<2) y+=66; }
+   return {w:x-A.x-62,out:y}; }},
+
+ {id:'sawPit', hard:2, need:null, make(A){
+   const w1=140, g=112, w2=150;
+   A.plat(A.x,A.y,w1); A.plat(A.x+w1+g,A.y,w2);
+   const cx=A.x+w1+g/2;
+   A.saw(cx,A.y-132,cx,A.y-8,20+A.rnd()*4,1.1+A.rnd()*0.5,A.rnd()*6);
+   return {w:w1+g+w2,out:A.y}; }},
+
+ {id:'sawSweep', hard:2, need:null, make(A){
+   const w=300+A.rnd()*70;
+   A.plat(A.x,A.y,w);
+   A.saw(A.x+50,A.y-46,A.x+w-50,A.y-46,19+A.rnd()*4,0.7+A.rnd()*0.4,A.rnd()*6);
+   return {w,out:A.y}; }},
+
+ {id:'bridge', hard:2, need:'move', make(A){
+   const w1=140, g=230+A.rnd()*70, w2=150;
+   A.plat(A.x,A.y,w1);
+   A.plat(A.x+w1+22,A.y,116,'move',{axis:'x',range:60,speed:0.7+A.rnd()*0.3,phase:A.rnd()*6.28});
+   A.plat(A.x+w1+g,A.y,w2);
+   return {w:w1+g+w2,out:A.y}; }},
+
+ {id:'lift', hard:2, need:'move', dy:-1, make(A){
+   const w1=150, rise=150+A.rnd()*56, w2=160;
+   A.plat(A.x,A.y,w1);
+   const mx=A.x+w1+16;
+   A.plat(mx,A.y-rise/2,110,'move',{axis:'y',range:rise/2,speed:0.5+A.rnd()*0.25,phase:A.rnd()*6.28});
+   A.plat(mx+110+18,A.y-rise,w2);
+   return {w:w1+16+110+18+w2,out:A.y-rise}; }},
+
+ {id:'crumbleRow', hard:2, need:'crumble', make(A){
+   const w1=120; A.plat(A.x,A.y,w1);
+   let x=A.x+w1+34;
+   for(let i=0;i<3;i++){ A.plat(x,A.y,88,'crumble'); x+=88+32; }
+   A.plat(x,A.y,140);
+   return {w:x+140-A.x,out:A.y}; }},
+
+ {id:'beltRun', hard:1, need:'belt', make(A){
+   const w1=120, bw=190, w2=140, dir=A.rnd()<0.5?-1:1;
+   A.plat(A.x,A.y,w1);
+   A.plat(A.x+w1,A.y,bw,'belt',{dir});
+   A.plat(A.x+w1+bw,A.y,w2);
+   return {w:w1+bw+w2,out:A.y}; }},
+
+ {id:'ceilRun', hard:2, need:'ceil', make(A){
+   const w=300+A.rnd()*60;
+   A.plat(A.x,A.y,w);
+   const cw=70+A.rnd()*50, cx=A.x+90+A.rnd()*(w-190-cw);
+   A.plat(cx,A.y-176,cw);
+   A.spike(cx+4,A.y-152,cw-8,true);
+   return {w,out:A.y}; }},
+
+ {id:'spiderDen', hard:2, need:'spider', make(A){
+   const w=250+A.rnd()*60;
+   A.plat(A.x,A.y,w);
+   A.spider(A.x+w*0.55,A.y-16);
+   return {w,out:A.y}; }},
+
+ {id:'towerUp', hard:2, need:null, dy:-1, make(A){
+   let x=A.x, y=A.y;
+   A.plat(x,y,120); x+=120;
+   for(let i=0;i<3;i++){ x+=52; y-=76; A.plat(x,y,96); x+=96; }
+   return {w:x-A.x,out:y}; }}
+];
+
 function buildLevel(n){
   const t=tutorial(n); if(t) return t;
   const rnd=mulberry32(90210+n*7919);
@@ -544,67 +637,78 @@ function buildLevel(n){
   const F={saw:true,bfly:n>=10,move:n>=14,crumble:n>=30,spider:n>=38,ceil:n>=48,belt:n>=52};
   const L={n,width:0,light:clamp(244-(n-6)*0.72,170,244),hint:INTRO[n]||null,
     plats:[],haz:[],spiders:[],butterflies:F.bfly&&(n===10||rnd()<0.45),start:null,exit:null};
-  const segs=clamp(4+Math.round((n-6)/6.2),4,17);
-  let x=30,y=430,spiderCount=0,forced={move:n===14,crumble:n===30,spider:n===38,ceil:n===48,belt:n===52};
+
+  const A={x:0,y:430,d,rnd,
+    plat:(x,y,w,type,opt)=>{ L.plats.push(P(Math.round(x),Math.round(y),Math.round(w),type,opt)); },
+    spike:(x,y,w,down)=>{ L.haz.push(SP(Math.round(x),Math.round(y),Math.round(w),down)); },
+    saw:(ax,ay,bx,by,r,sp,ph)=>{ L.haz.push(SAW(ax,ay,bx,by,r,sp,ph)); },
+    spider:(x,y)=>{ L.spiders.push({x:Math.round(x),y:Math.round(y),t:rnd()*6}); }};
+
+  // стартовая площадка — всегда широкая и пустая
+  A.plat(0,452,220); L.start={x:80,y:412};
+  let x=220, y=452;
+
+  const forced={14:'bridge',30:'crumbleRow',38:'spiderDen',48:'ceilRun',52:'beltRun'}[n];
+  const segs=clamp(3+Math.round((n-6)/7),3,12);
+  let prev=null, sinceRest=0, spiders=0;
 
   for(let i=0;i<segs;i++){
-    const last=i===segs-1, first=i===0;
-    let w=last?170:(first?200:110+Math.floor(rnd()*150));
-    let type='solid';
-    if(!first&&!last){
-      if(F.move&&(forced.move||rnd()<0.16)){type='move';forced.move=false;}
-      else if(F.belt&&(forced.belt||rnd()<0.20)){type='belt';forced.belt=false;w=Math.max(w,150);}
-      else if(F.crumble&&(forced.crumble||rnd()<0.15)){type='crumble';forced.crumble=false;w=Math.min(w,120);}
+    let pick=null;
+    if(i===1&&forced) pick=PIECES.find(p=>p.id===forced);
+    if(!pick){
+      const room=PIECES.filter(p=>{
+        if(p.need&&!F[p.need]) return false;
+        if(p.id===prev) return false;
+        if(p.id==='spiderDen'&&spiders>=2) return false;
+        if(p.hard>=2&&sinceRest<1) return false;           // после тяжёлого — передышка
+        if(p.hard>1&&d<0.12) return false;                 // на первых уровнях без злого
+        if(p.dy===-1&&y<210) return false;                 // выше некуда
+        if(p.dy===1&&y>440) return false;                  // ниже некуда
+        return true;
+      });
+      const pool=room.length?room:PIECES.filter(p=>p.id==='flat');
+      // чем дальше, тем чаще тяжёлые куски
+      const need=y-(452-262*(i/Math.max(1,segs-1)));   // насколько отстаём от подъёма
+      const wt=pool.map(p=>{
+        let v=p.hard===0?(1.1-0.7*d):(p.hard===1?2.0:0.9+2.0*d);
+        if(p.dy===-1) v*=need>60?2.6:(need>0?1.5:0.5);   // пора наверх
+        if(p.dy===1)  v*=need<-40?2.2:0.45;              // забрались выше плана
+        return v; });
+      let r=rnd()*wt.reduce((s,v)=>s+v,0), k=0;
+      while(k<pool.length-1&&(r-=wt[k])>0) k++;
+      pick=pool[k];
     }
-    const opt={};
-    if(type==='belt') opt.dir=rnd()<0.5?-1:1;
-    if(type==='move'){
-      opt.axis=rnd()<0.55?'x':'y';
-      opt.range=(opt.axis==='x'?55:45)+rnd()*(60+40*d);
-      opt.speed=0.55+rnd()*(0.5+0.5*d);
-      opt.phase=rnd()*Math.PI*2;
-      w=Math.max(90,Math.min(w,130));
+    const res=pick.make(Object.assign({},A,{x,y}));
+    x+=res.w; y=clamp(res.out,170,460);
+    if(pick.id==='spiderDen') spiders++;
+    sinceRest=pick.hard===0?0:sinceRest+1;
+    prev=pick.id;
+    // связка между кусками: небольшой шаг, всегда в пределах прыжка
+    if(i<segs-1){
+      const g=Math.min(JGAP,58+rnd()*(30+40*d));
+      const want=452-262*((i+1)/Math.max(1,segs-1));        // куда уровень должен подняться
+      let ny=y+(want-y)*0.55+(rnd()*2-1)*32;                // тянемся к линии подъёма
+      ny=clamp(ny,170,462);
+      if(y-ny>JRISE) ny=y-JRISE;                            // подъём не выше прыжка
+      if(ny-y>150) ny=y+150;
+      x+=g; y=ny;
     }
-    const p=P(x,y,w,type,opt);
-    L.plats.push(p);
-    if(first) L.start={x:x+40,y:y-40};
-    if(last) L.exit={x:x+w/2-22,y:y-56,w:44,h:56};
-
-    if(!first&&!last&&type==='solid'&&w>=124){
-      const r=rnd();
-      if(r<0.26+0.34*d){
-        const sw=28+Math.floor(rnd()*Math.min(66,w-92));
-        L.haz.push(SP(x+44+rnd()*(w-88-sw),y,sw));
-      }
-      if(F.ceil&&(forced.ceil||rnd()<0.10+0.18*d)&&w>=170){
-        forced.ceil=false;
-        const cw=50+Math.floor(rnd()*50);
-        const cx=x+50+rnd()*(w-100-cw);
-        L.plats.push(P(cx,y-176,cw,'solid',{ceil:true}));
-        L.haz.push(SP(cx+4,y-152,cw-8,true));
-      }
-      if(F.spider&&spiderCount<3&&(forced.spider||rnd()<0.14+0.2*d)){
-        forced.spider=false; spiderCount++;
-        L.spiders.push({x:x+w*(0.35+rnd()*0.4),y:y-16,t:rnd()*6});
-      }
-    }
-    if(F.bfly&&!L.butterflies&&rnd()<0.1) L.butterflies=true;
-
-    if(!last){
-      let ny=y+(rnd()*2-1)*(52+58*d);
-      ny=clamp(ny,190,470);
-      if(ny<y-86) ny=y-86;
-      if(ny>y+165) ny=y+165;
-      const gap=Math.min(48+rnd()*(34+34*d),140-Math.max(0,y-ny)*0.62);
-      const nx=x+w+gap;
-      if(F.saw&&rnd()<0.09+0.20*d&&gap>62){
-        const cx2=x+w+gap/2, top=Math.min(y,ny);
-        if(rnd()<0.6) L.haz.push(SAW(cx2,top-118,cx2,top+56,17+rnd()*7,0.7+rnd()*0.7,rnd()*6.3));
-        else L.haz.push(SAW(x+w-14,top-40,nx+14,top-40,16+rnd()*6,0.6+rnd()*0.6,rnd()*6.3));
-      }
-      x=nx; y=ny;
-    } else { x+=w; }
   }
+  // россыпь шипов по широким площадкам: без неё уровень пустой
+  const firstP=L.plats[0];
+  for(const p of L.plats){
+    if(p===firstP||p.type!=='solid'||p.ceil||p.w<150) continue;
+    if(L.haz.some(h=>h.type==='spike'&&h.x<p.x+p.w&&h.x+h.w>p.x)) continue;
+    if(L.haz.some(h=>h.type==='saw'&&Math.min(h.ax,h.bx)<p.x+p.w+30&&Math.max(h.ax,h.bx)>p.x-30)) continue;
+    if(rnd()>0.22+0.40*d) continue;
+    const sw=36+rnd()*34;
+    A.spike(p.x+70+rnd()*(p.w-140-sw),p.y,sw);
+  }
+  // финишная площадка — тоже широкая и чистая
+  A.plat(x,y,200);
+  L.exit={x:Math.round(x+100-22),y:Math.round(y-56),w:44,h:56};
+  x+=200;
+
   alignMovers(L);
   clearSaws(L);
   L.width=Math.max(W,x+60);
