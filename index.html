@@ -577,8 +577,11 @@ function tutorial(n){
 // больше не строит выше YTOP и меряет пролёты по реальной высоте, а не по константе.
 const YTOP=205;
 const jumpF=y=>clamp(((y-15)-42)/230,.74,1);
-function riseAt(y){ const v=JUMP*jumpF(y)*1.10; return Math.min(v*v/(2*GRAV),(y-15)-58); }
-function gapAt(y){ const v=JUMP*jumpF(y)*1.10; return 2*v/GRAV*SPEED; }
+// Уровень должен проходиться прыжком любого робота, а не только Бобби:
+// у Гайки прыжок слабее, и если мерить по Бобби, ей приходится жечь ранец.
+const JMIN=()=>Math.min.apply(null,ROBOTS.map(r=>r.jump||1));
+function riseAt(y){ const v=JUMP*jumpF(y)*JMIN(); return Math.min(v*v/(2*GRAV),(y-15)-58); }
+function gapAt(y){ const v=JUMP*jumpF(y)*JMIN(); return 2*v/GRAV*SPEED; }
 const JGAP=118, JRISE=92;
 
 const PIECES=[
@@ -2017,7 +2020,7 @@ function drawPaper(){
 }
 // ───────── роботы и скины ─────────
 const ROBOTS=[
-  {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna',jump:1.10,g:'m'},  // нет ранца — компенсируем прыжком
+  {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna',jump:1.18,g:'m'},  // нет ранца — компенсируем прыжком
   {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt',fly:true,jump:1,g:'f'}
 ];
 const SKINS=[
@@ -2453,7 +2456,9 @@ function touchStuff(){
   if(hero.dead>0) return;
   const b=heroBox();
   L.checks.forEach((c,i)=>{ if(!c.on&&Math.abs(hero.x-c.x)<26&&Math.abs(hero.y-c.y)<50){
-    c.on=true; spawnPt={x:c.x,y:c.y-30,i:i}; sfx.ding(); say('Я запомнил это место.',1.6); } });
+    c.on=true; spawnPt={x:c.x,y:c.y-30,i:i}; sfx.ding();
+    hero.jet=FUEL;                       // заправка на чекпоинте: раньше топливо давала только смерть
+    say('Я запомнил это место.',1.6); } });
   if(L.note){
     const wasNear=L.note.near;
     L.note.near=Math.abs(hero.x-L.note.x)<34&&Math.abs(hero.y-L.note.y)<52&&hero.dead<=0;
