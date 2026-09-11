@@ -2308,24 +2308,102 @@ function drawEnding(){
   }
 
   // ── цех, из которого он вышел ──
-  const fx=34, fw=186, fTop=yG-158;
-  ctx.fillStyle=eMix('#07070c','#1d1420',sunUp*0.7);
-  ctx.fillRect(fx,fTop,fw,yG-fTop);
-  ctx.fillRect(fx+128,fTop-52,30,56);                       // труба
-  const dW=46, dX=fx+72, dTop=yG-84;
+  const fx=26, fw=196, fTop=yG-150, twX=fx+124, twW=72, twTop=yG-212;
+  const wall=eMix('#08080d','#241a26',sunUp*0.75);
+  const wall2=eMix('#05050a','#1a1220',sunUp*0.75);
+  const rim='rgba(255,206,150,'+(0.50*sunUp)+')';     // край, обращённый к солнцу
+  // тень здания по земле
+  ctx.save(); ctx.beginPath(); ctx.rect(0,yG,W,H-yG); ctx.clip();
+  ctx.fillStyle='rgba(18,9,5,'+(0.18+0.18*sunUp)+')';
+  ctx.beginPath(); ctx.moveTo(fx,yG); ctx.lineTo(fx+fw,yG);
+  ctx.lineTo(fx+fw-150,yG+40); ctx.lineTo(0,yG+40); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // пристройка слева
+  ctx.fillStyle=wall2; ctx.fillRect(0,yG-88,fx+14,88);
+  // основной корпус
+  ctx.fillStyle=wall; ctx.fillRect(fx,fTop,fw,yG-fTop);
+  // пилообразная крыша
+  for(let i=0;i<5;i++){ const sx0=fx+6+i*38;
+    ctx.beginPath(); ctx.moveTo(sx0,fTop); ctx.lineTo(sx0+20,fTop-22); ctx.lineTo(sx0+20,fTop); ctx.closePath();
+    ctx.fillStyle=wall; ctx.fill();
+    ctx.fillStyle='rgba(255,200,140,'+(0.22*sunUp)+')';      // застеклённый скат ловит свет
+    ctx.beginPath(); ctx.moveTo(sx0+20,fTop-22); ctx.lineTo(sx0+20,fTop); ctx.lineTo(sx0+14,fTop); ctx.closePath(); ctx.fill(); }
+  // башня и труба
+  ctx.fillStyle=wall; ctx.fillRect(twX,twTop,twW,yG-twTop);
+  const chX=twX+twW-34, chTop=twTop-76;
+  ctx.fillStyle=wall2; ctx.fillRect(chX,chTop,26,twTop-chTop+8);
+  ctx.fillStyle=eMix('#0d0a12','#33222e',sunUp*0.8);
+  ctx.fillRect(chX-3,chTop,32,7); ctx.fillRect(chX-2,chTop+24,30,5);   // ободья
+  // дым тянется к солнцу
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<9;i++){
+    const t=(T*0.12+i/9)%1, py=chTop-6-t*120, px=chX+13+Math.sin(T*0.5+i*1.7)*10+t*54;
+    const a=(1-t)*0.09*(0.35+sunUp);
+    if(a<=0.002) continue;
+    const g2=ctx.createRadialGradient(px,py,0,px,py,10+t*34);
+    g2.addColorStop(0,'rgba(228,206,196,'+a+')'); g2.addColorStop(1,'rgba(228,206,196,0)');
+    ctx.fillStyle=g2; ctx.fillRect(px-46,py-46,92,92); }
+  ctx.restore();
+  // рифление стены
+  ctx.save(); ctx.beginPath(); ctx.rect(fx,fTop,fw,yG-fTop); ctx.clip();
+  ctx.strokeStyle='rgba(0,0,0,.30)'; ctx.lineWidth=1;
+  for(let x=fx+8;x<fx+fw;x+=9){ ctx.beginPath(); ctx.moveTo(x,fTop); ctx.lineTo(x,yG); ctx.stroke(); }
+  ctx.restore();
+  // окна: часть ещё горит, часть выбита
+  const lit=[2,5,9];
+  for(let r2=0;r2<3;r2++) for(let c2=0;c2<4;c2++){
+    const wx=fx+16+c2*44, wy=fTop+18+r2*38, id=r2*4+c2;
+    if(wx>twX-10&&wy>twTop) continue;
+    const on=lit.indexOf(id)>=0;
+    ctx.fillStyle=on?'rgba(255,206,132,'+(0.34+0.22*Math.sin(T*1.3+id))+')'
+                   :'rgba(255,225,190,'+(0.05+0.09*sunUp)+')';
+    ctx.fillRect(wx,wy,26,20);
+    ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.lineWidth=1.4; ctx.strokeRect(wx,wy,26,20);
+    if(id===4||id===7){ ctx.strokeStyle='rgba(0,0,0,.6)';   // трещины
+      ctx.beginPath(); ctx.moveTo(wx+3,wy+16); ctx.lineTo(wx+13,wy+4); ctx.lineTo(wx+23,wy+15); ctx.stroke(); }
+  }
+  // подсветка правых граней от солнца
+  ctx.fillStyle=rim;
+  ctx.fillRect(fx+fw-2,fTop,2,yG-fTop);
+  ctx.fillRect(twX+twW-2,twTop,2,yG-twTop);
+  ctx.fillRect(chX+24,chTop,2,twTop-chTop+8);
+  // ── проём, из которого он вышел ──
+  const dW=52, dX=fx+42, dTop=yG-92;
   const op=doorOpen*dW;
   ctx.save(); ctx.globalCompositeOperation='lighter';        // свет из проёма
-  const sA=0.50*doorOpen*(1-stepOut*0.65);
-  const spill=ctx.createRadialGradient(dX+op*0.5,yG-34,0,dX+op*0.5,yG-34,150+op*2.2);
-  spill.addColorStop(0,'rgba(255,228,176,'+sA+')');
-  spill.addColorStop(0.45,'rgba(255,198,128,'+(sA*0.35)+')');
+  const sA=0.52*doorOpen*(1-stepOut*0.6);
+  const spill=ctx.createRadialGradient(dX+op*0.5,yG-38,0,dX+op*0.5,yG-38,160+op*2.4);
+  spill.addColorStop(0,'rgba(255,230,180,'+sA+')');
+  spill.addColorStop(0.45,'rgba(255,200,130,'+(sA*0.34)+')');
   spill.addColorStop(1,'rgba(255,180,110,0)');
   ctx.fillStyle=spill; ctx.fillRect(0,0,W,H);
   ctx.restore();
-  ctx.fillStyle='rgba(255,240,205,'+(0.30+0.55*doorOpen)+')';
-  ctx.fillRect(dX,dTop,op,yG-dTop);                          // сам проём
-  ctx.fillStyle=eMix('#05050a','#241a24',sunUp*0.7);
-  ctx.fillRect(dX+op,dTop,dW-op,yG-dTop);
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(dX-6,dTop-8,dW+12,yG-dTop+8);   // ниша
+  const din=ctx.createLinearGradient(0,dTop,0,yG);           // свет из глубины цеха
+  const dA=0.26+0.58*doorOpen;
+  din.addColorStop(0,'rgba(255,236,196,'+(dA*0.55)+')');
+  din.addColorStop(0.45,'rgba(255,244,214,'+dA+')');
+  din.addColorStop(1,'rgba(255,214,158,'+(dA*0.72)+')');
+  ctx.fillStyle=din;
+  ctx.fillRect(dX,dTop,op,yG-dTop);                          // открытая часть
+  ctx.fillStyle=eMix('#050509','#221822',sunUp*0.7);
+  ctx.fillRect(dX+op,dTop,dW-op,yG-dTop);                    // недоехавшая створка
+  ctx.fillStyle=eMix('#0f0b14','#3a2736',sunUp*0.8);
+  ctx.fillRect(dX-8,dTop-14,dW+16,12);                       // перемычка
+  ctx.fillRect(dX-8,dTop-26,dW+16,9);                        // короб рольставни
+  ctx.fillStyle='rgba(0,0,0,.5)';
+  ctx.fillRect(dX-10,yG-5,dW+20,5);                          // выбитый порог
+  // лампа над дверью
+  const lx=dX+dW+16, ly=dTop-22;
+  ctx.fillStyle=eMix('#0f0b14','#3a2736',sunUp*0.8);
+  ctx.fillRect(lx-2,ly-8,4,8);
+  ctx.beginPath(); ctx.moveTo(lx-9,ly); ctx.lineTo(lx+9,ly); ctx.lineTo(lx+5,ly+7); ctx.lineTo(lx-5,ly+7); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  const lampA=0.30*(1-sunUp*0.75)*(0.82+0.18*Math.sin(T*7.3));
+  const lg=ctx.createRadialGradient(lx,ly+8,0,lx,ly+8,54);
+  lg.addColorStop(0,'rgba(255,214,150,'+lampA+')'); lg.addColorStop(1,'rgba(255,190,120,0)');
+  ctx.fillStyle=lg; ctx.fillRect(lx-60,ly-40,120,110);
+  ctx.restore();
 
   // ── пылинки в свете ──
   if(sunUp>0.12){
@@ -2414,7 +2492,7 @@ function drawEnding(){
     const big=(i===8);
     ctx.save(); ctx.globalAlpha=big?Math.max(a,titleIn):a;
     ctx.textAlign='center';
-    ctx.font=(big?'700 40px':'400 21px')+' "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
+    ctx.font=(big?'700 40px':'600 21px')+' "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
     const lines=eWrap(ctx,END[i],W-190);
     const y0=big?H*0.40:H*0.255;
     ctx.shadowColor=darkT>0.5?'rgba(255,244,214,.95)':'rgba(0,0,0,.75)';
