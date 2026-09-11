@@ -1673,18 +1673,16 @@ function buildPaperMesh(seed){
   }
   for(let j=0;j<PROWS;j++) for(let i=0;i<PCOLS;i++){
     const u=i/(PCOLS-1), v=j/(PROWS-1);
-    const ang=R()*6.283, rad=0.06+R()*0.13;
-    let fz=0;
-    for(const cr of creases){
-      const d=(u-0.5)*cr.nx+(v-0.5)*cr.ny-cr.off;
-      fz+=cr.amp*Math.exp(-(d*d)/(cr.wid*cr.wid));
-    }
+    // Комок держит круглый контур: точку тянем к центру по её же направлению,
+    // радиус слегка дрожит. Без этого края расходились колючей звездой.
+    const dx=u-0.5, dy=v-0.5, a=Math.atan2(dy,dx), rr2=Math.hypot(dx,dy)/0.707;
+    const rad=0.115*(0.52+0.48*rr2)*(0.84+0.32*R());
     pts.push({u,v,
-      cx:(u-0.5)*0.22+Math.cos(ang)*rad,      // куда точка уходит в комке
-      cy:(v-0.5)*0.24+Math.sin(ang)*rad,
-      cz:R()*2-1,
-      fz:clamp(fz,-1.6,1.6)*0.17+(R()*2-1)*0.03,   // вмятина, которая остаётся
-      d:R()});
+      cx:Math.cos(a)*rad+(R()*2-1)*0.012,
+      cy:Math.sin(a)*rad*1.06+(R()*2-1)*0.012,
+      cz:R()*2-1,                              // мятость живёт в складках, не в контуре
+      // расправляется связно, от центра к краям: вразнобой точки вылетали иглами
+      d:clamp(rr2*0.82+R()*0.14,0,1)});
   }
   return {pts,creases};
 }
@@ -1703,7 +1701,7 @@ function closePaper(){
 }
 function updatePaper(dt){
   if(!paper) return;
-  paper.u=clamp(paper.u+paper.dir*dt*(paper.dir>0?0.95:1.25),0,1);
+  paper.u=clamp(paper.u+paper.dir*dt*(paper.dir>0?0.72:1.05),0,1);
   if(paper.dir<0&&paper.u<=0.001){
     paper=null; state='play'; last=performance.now(); cv.style.cursor='none';
   }
@@ -1724,33 +1722,29 @@ function drawPaper(){
   const M=P.mesh.pts, pos=new Array(M.length);
   for(let n=0;n<M.length;n++){
     const m=M[n];
-    const t=ss2(clamp((P.u-m.d*0.34)/(1-m.d*0.34),0,1));   // точки расправляются вразнобой
+    const t=ss2(clamp((P.u-m.d*0.24)/(1-m.d*0.24),0,1));   // край догоняет центр
     const x=lerp(m.cx,m.u-0.5,t)*SW, y=lerp(m.cy,m.v-0.5,t)*SH;
-    pos[n]={x,y,z:lerp(m.cz,m.fz,t)};
+    pos[n]={x,y,z:m.cz*(1-t)};
   }
-  // грани — только пока бумага мятая: у ровного листа никакой сетки быть не должно
-  const fa=clamp((P.u-0.74)/0.22,0,1);
-  if(fa<0.999){
-    ctx.save(); ctx.globalAlpha=1-fa*0.85;
-    for(let j=0;j<PROWS-1;j++) for(let i=0;i<PCOLS-1;i++){
-      const a=pos[j*PCOLS+i], b=pos[j*PCOLS+i+1], c=pos[(j+1)*PCOLS+i+1], d2=pos[(j+1)*PCOLS+i];
-      const gx=(b.z+c.z-a.z-d2.z)*0.5, gy=(d2.z+c.z-a.z-b.z)*0.5;
-      const sh=clamp(0.5-gx*0.42-gy*0.30,0,1);
-      const v=Math.round(198+sh*52), v2=Math.round(186+sh*54), v3=Math.round(162+sh*54);
-      ctx.fillStyle='rgb('+v+','+v2+','+v3+')';
-      ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=1.1;     // перекрытие убирает швы
-      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
-      ctx.lineTo(c.x,c.y); ctx.lineTo(d2.x,d2.y); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-    }
-    ctx.restore();
+  // Один и тот же лист от комка до ровного: складки живут в z, а z к концу
+  // сходит в ноль — грани растворяются сами, без склейки двух картинок.
+  for(let j=0;j<PROWS-1;j++) for(let i=0;i<PCOLS-1;i++){
+    const a=pos[j*PCOLS+i], b=pos[j*PCOLS+i+1], c=pos[(j+1)*PCOLS+i+1], d2=pos[(j+1)*PCOLS+i];
+    const gx=(b.z+c.z-a.z-d2.z)*0.5, gy=(d2.z+c.z-a.z-b.z)*0.5;
+    const sh=clamp(0.5-gx*0.40-gy*0.28,0,1);
+    ctx.fillStyle='rgb('+Math.round(207+sh*52)+','+Math.round(197+sh*52)+','+Math.round(173+sh*52)+')';
+    const mx=(a.x+b.x+c.x+d2.x)*0.25, my=(a.y+b.y+c.y+d2.y)*0.25, E=1.07;
+    ctx.beginPath();                                        // чуть раздуваем — швы исчезают
+    ctx.moveTo(mx+(a.x-mx)*E,my+(a.y-my)*E);
+    ctx.lineTo(mx+(b.x-mx)*E,my+(b.y-my)*E);
+    ctx.lineTo(mx+(c.x-mx)*E,my+(c.y-my)*E);
+    ctx.lineTo(mx+(d2.x-mx)*E,my+(d2.y-my)*E);
+    ctx.closePath(); ctx.fill();
   }
-  // ровный лист: цельная бумага и мягкие полосы сгибов вместо клетки
+  // следы сгибов и фактура проступают, когда лист уже расправился
+  const fa=clamp((P.u-0.72)/0.26,0,1);
   if(fa>0.001){
     ctx.save(); ctx.globalAlpha=fa;
-    const pg=ctx.createLinearGradient(-SW*0.5,-SH*0.5,SW*0.5,SH*0.5);
-    pg.addColorStop(0,'#f2ead6'); pg.addColorStop(0.52,'#e9dfc7'); pg.addColorStop(1,'#dbceb2');
-    ctx.fillStyle=pg; ctx.fillRect(-SW/2,-SH/2,SW,SH);
     ctx.save(); ctx.beginPath(); ctx.rect(-SW/2,-SH/2,SW,SH); ctx.clip();
     ctx.save(); ctx.scale(SW,SH);                          // работаем в единичном листе
     for(const cr of P.mesh.creases){
@@ -1766,7 +1760,7 @@ function drawPaper(){
     }
     ctx.restore();
     const R2=mulberry32(99);                                // волокна
-    ctx.fillStyle='rgba(120,106,78,.05)';
+    ctx.fillStyle='rgba(120,106,78,.055)';
     for(let i=0;i<260;i++) ctx.fillRect(-SW/2+R2()*SW,-SH/2+R2()*SH,1.4,1.4);
     const vg2=ctx.createRadialGradient(0,0,SH*0.28,0,0,SH*0.78);  // подтемнение к краям
     vg2.addColorStop(0,'rgba(90,76,52,0)'); vg2.addColorStop(1,'rgba(90,76,52,.17)');
