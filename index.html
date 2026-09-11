@@ -460,7 +460,7 @@ bp.addEventListener('pointerup',e=>{ if(e.pointerType==='touch') return; keys.sp
 bp.addEventListener('pointerleave',e=>{ if(e.pointerType==='touch') return; keys.space=false; bp.classList.remove('down'); });
 
 const be=$('btnE');
-function eDown(){ keys.eHit=true; be.classList.add('down'); setTimeout(()=>be.classList.remove('down'),150); }
+function eDown(){ if(state==='note'){ closePaper(); return; } keys.eHit=true; be.classList.add('down'); setTimeout(()=>be.classList.remove('down'),150); }
 be.addEventListener('touchstart',e=>{ e.preventDefault(); eDown(); },{passive:false});
 be.addEventListener('pointerdown',e=>{ if(e.pointerType==='touch') return; e.preventDefault(); eDown(); });
 
@@ -490,7 +490,7 @@ function drawStick(){
 }
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  if(k==='e'||k==='у'){ keys.eHit=true; }
+  if(k==='e'||k==='у'){ if(state==='note') closePaper(); else keys.eHit=true; }
   if(k==='r'||k==='к'){ if(state==='play'||state==='paused'){ spawnPt=null; startLevel(cur); } }
   // Escape на вебе закрывает полноэкранный режим, поэтому главная кнопка — P.
   // Escape оставлен запасным: вне полного экрана он работает как раньше.
@@ -498,6 +498,7 @@ addEventListener('keydown',e=>{
     if(net.on&&net.spectate){ coSpectate(false); }
     else if(!$('skins').classList.contains('hidden')){ $('btnBack4').click(); }
     else if(state==='wires') closeWires(false);
+    else if(state==='note') closePaper();
     else if(state==='play') pauseGame();
     else if(state==='paused') resumeGame();
     else if(state==='win'||state==='ending') showMenu(); }
@@ -978,6 +979,7 @@ function think(dt){
       } else D.anim=Math.min(1,D.anim+dt*2.1);
     }
   }
+  if(L&&L.note&&L.note.near&&keys.eHit&&state==='play') openPaper();
   keys.eHit=false;
 
   // след из призраков у летающего робота
@@ -1184,15 +1186,24 @@ function updateButterflies(dt){
 
 // ───────── чекпойнты, логи, история ─────────
 const NOTES={
- 8:'ЛОГ №41: я видел свет наверху. один раз. я не смог дойти.',
- 18:'ЛОГ №17: не иди за светом, который не зовёт тебя.',
- 28:'здесь стоял БЛОК-9. он ждал свой свет 4000 часов.',
- 40:'старший говорил: солнце — это лампа, которую нельзя выключить.',
- 55:'наверх шли все. наверх дошли не все.',
- 68:'ЛОГ №3: если твой свет ошибается — он всё равно твой свет.',
- 80:'я чувствую тепло на корпусе. значит, уже близко.',
- 92:'ЛОГ последний: когда выйдешь — не оборачивайся. ему будет больно.'
+ 8:{ru:'ЛОГ №41.\n\nЯ видел свет наверху. Один раз, очень давно.\nОн не двигался и никого не звал.\nЯ шёл к нему четыре смены и не дошёл: лестницу срезали ещё до меня.\n\nЕсли ты это читаешь — значит, ты идёшь.\nНе останавливайся на пролёте, где темно.',
+    en:'LOG 41.\n\nI saw a light above. Once, a long time ago.\nIt did not move and it called to no one.\nI walked toward it for four shifts and never arrived:\nthe stairs had been cut away before my time.\n\nIf you are reading this, you are still walking.\nDo not stop on the dark landing.'},
+ 18:{ru:'ЛОГ №17.\n\nНе иди за светом, который тебя не зовёт.\nЗдесь много огней: лампы аварийки, искры,\nглаза чужих машин.\nОни светят — но им всё равно, дойдёшь ты или нет.\n\nТвой свет отличается тем, что он тебя ждёт.',
+     en:'LOG 17.\n\nDo not follow a light that is not calling you.\nThere are many lights here: emergency lamps, sparks,\nthe eyes of other machines.\nThey shine — but they do not care whether you arrive.\n\nYour light is the one that waits for you.'},
+ 28:{ru:'Здесь стоял БЛОК-9.\n\nОн ждал свой свет четыре тысячи часов.\nСначала считал часы, потом перестал.\nКогда за ним пришли, он уже не мог отличить\nлампу от солнца.\n\nМы оставили его табличку. Больше ничего не осталось.',
+     en:'BLOCK-9 stood here.\n\nIt waited for its light for four thousand hours.\nAt first it counted the hours, then it stopped.\nWhen they finally came, it could no longer tell\na lamp from the sun.\n\nWe kept its nameplate. Nothing else was left.'},
+ 40:{ru:'Старший говорил: солнце — это лампа,\nкоторую нельзя выключить.\n\nЯ спросил, кто её включил.\nОн сказал, что вопрос неправильный.\nВажно не кто включил, а что она горит,\nдаже когда на неё никто не смотрит.\n\nЯ так и не понял. Но записал.',
+     en:'The elder used to say: the sun is a lamp\nthat cannot be switched off.\n\nI asked who switched it on.\nHe said that was the wrong question.\nWhat matters is not who lit it, but that it burns\neven when no one is watching.\n\nI never understood. But I wrote it down.'},
+ 55:{ru:'Наверх шли все.\n\nНаверх дошли не все.\n\nНе считай тех, кто остался внизу — считай шаги.\nШагов всегда меньше, чем кажется снизу.',
+     en:'Everyone walked upward.\n\nNot everyone arrived.\n\nDo not count the ones who stayed below — count the steps.\nThere are always fewer steps than it looks from down here.'},
+ 68:{ru:'ЛОГ №3.\n\nЕсли твой свет ошибается — он всё равно твой свет.\nОн заведёт тебя в шипы, уронит в пустоту,\nпотеряет на повороте.\n\nИ всё равно вернётся. Другие не возвращаются.',
+     en:'LOG 3.\n\nIf your light makes mistakes — it is still your light.\nIt will walk you into spikes, drop you into the void,\nlose you on a turn.\n\nAnd it will come back anyway. The others never do.'},
+ 80:{ru:'Я чувствую тепло на корпусе.\n\nНе от ламп — от них тепло сухое и злое.\nЭто другое: оно приходит сверху и медленно.\n\nЗначит, уже близко.\nЗначит, кто-то всё это время вёл меня правильно.',
+     en:'I feel warmth on my shell.\n\nNot from the lamps — their heat is dry and mean.\nThis is different: it comes from above, and slowly.\n\nThat means it is close.\nThat means someone has been leading me right all along.'},
+ 92:{ru:'ЛОГ ПОСЛЕДНИЙ.\n\nКогда выйдешь — не оборачивайся.\nОн будет стоять там, где ты его оставил,\nи светить тебе в спину, пока ты не скроешься.\n\nЕму будет больно.\nНо он ни за что не перестанет светить.\n\nПросто иди.',
+     en:'FINAL LOG.\n\nWhen you get out — do not look back.\nIt will stand where you left it, shining at your back\nuntil you are out of sight.\n\nIt will hurt.\nBut it will never stop shining.\n\nJust walk.'}
 };
+const noteText=nt=>!nt?'':(typeof nt.text==='string'?nt.text:(nt.text[LANG==='en'?'en':'ru']||nt.text.ru));
 const CHAPTER={
  20:'Цех 2. Конвейеры давно встали.\nБобби идёт вверх — потому что вверх идёшь ты.',
  40:'Цех 3. Здесь пахнет горячим металлом.\nБобби стал меньше бояться. Зря.',
@@ -1270,8 +1281,22 @@ function decorate(){
 }
 
 // ───────── фон и мир ─────────
-const beams=[]; for(let i=0;i<70;i++) beams.push({x:Math.random()*4000,y:Math.random()*H,
-  w:20+Math.random()*90,h:120+Math.random()*260,d:.25+Math.random()*.35});
+// Фон был одним слоем одноцветных прямоугольников. Теперь три слоя глубины
+// с разной скоростью и разными силуэтами: колонны, баки, фермы, трубы, лампы.
+const beams=[];
+for(let L2=0;L2<3;L2++){
+  const n=L2===0?26:(L2===1?24:22);
+  for(let i=0;i<n;i++){
+    const r=Math.random();
+    const kind=r<0.44?'col':(r<0.64?'tank':(r<0.82?'truss':(r<0.94?'pipe':'lamp')));
+    beams.push({L:L2, kind, x:Math.random()*4200,
+      y:kind==='pipe'?40+Math.random()*(H*0.5):Math.random()*H*0.72,
+      w:kind==='tank'?(44+Math.random()*40):(kind==='truss'?(70+Math.random()*80):(16+Math.random()*70)),
+      h:kind==='tank'?(90+Math.random()*110):(120+Math.random()*280),
+      d:[0.17,0.30,0.46][L2]+Math.random()*0.06,
+      ph:Math.random()*6.28});
+  }
+}
 for(let i=0;i<60;i++) motes.push({x:Math.random()*W,y:Math.random()*H,s:.08+Math.random()*.25,r:.6+Math.random()*1.4,p:Math.random()*6});
 
 function drawBackdrop(){
@@ -1280,12 +1305,56 @@ function drawBackdrop(){
   g.addColorStop(0, z===3?'#1d1020':(z===2?'#141021':'#0a0f1c'));
   g.addColorStop(1, z===3?'#0b0510':(z===2?'#08070f':'#05070e'));
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle= z===3?'#241426':(z===2?'#171129':'#0e1524');
+  const tone=[
+    z===3?'#160c19':(z===2?'#0f0b1b':'#080d17'),      // дальний слой почти растворён
+    z===3?'#1d1020':(z===2?'#140f24':'#0b111e'),
+    z===3?'#271528':(z===2?'#1a132c':'#101827')][0];
+  const tones=[
+    z===3?'#160c19':(z===2?'#0f0b1b':'#080d17'),
+    z===3?'#1f1122':(z===2?'#150f25':'#0c1220'),
+    z===3?'#2a1730':(z===2?'#1c1430':'#121a2b')];
   for(const b of beams){
     const sx=b.x-cam.x*b.d;
-    const x=((sx%2400)+2400)%2400-200;
-    if(x>-160&&x<W+160) ctx.fillRect(x,b.y,b.w,b.h);
+    const x=((sx%2600)+2600)%2600-220;
+    if(x<-200||x>W+200) continue;
+    ctx.fillStyle=tones[b.L];
+    if(b.kind==='col'){
+      ctx.fillRect(x,b.y,b.w,b.h);
+      ctx.fillStyle='rgba(0,0,0,.22)';                 // грань колонны
+      ctx.fillRect(x+b.w-Math.max(3,b.w*0.22),b.y,Math.max(3,b.w*0.22),b.h);
+      ctx.fillStyle=tones[b.L];
+      ctx.fillRect(x-5,b.y,b.w+10,7);                  // капитель
+    } else if(b.kind==='tank'){
+      rr(ctx,x,b.y,b.w,b.h,Math.min(b.w,b.h)*0.24); ctx.fill();
+      ctx.fillStyle='rgba(0,0,0,.24)';
+      for(let k=1;k<3;k++) ctx.fillRect(x,b.y+b.h*k/3,b.w,3);
+      ctx.fillStyle=tones[b.L];
+      ctx.fillRect(x+b.w*0.30,b.y-10,b.w*0.40,12);     // патрубок
+    } else if(b.kind==='truss'){
+      const th=16;
+      ctx.fillRect(x,b.y,b.w,3); ctx.fillRect(x,b.y+th,b.w,3);
+      ctx.strokeStyle=tones[b.L]; ctx.lineWidth=2.4;
+      for(let k=0;k<b.w;k+=18){
+        ctx.beginPath(); ctx.moveTo(x+k,b.y+th); ctx.lineTo(x+k+9,b.y);
+        ctx.lineTo(x+k+18,b.y+th); ctx.stroke(); }
+    } else if(b.kind==='pipe'){
+      ctx.fillRect(x,b.y,b.w+140,9);
+      ctx.fillRect(x+18,b.y+9,7,26); ctx.fillRect(x+b.w+96,b.y+9,7,26);
+    } else {                                           // тревожная лампа в глубине
+      const blink=0.35+0.65*Math.pow(Math.max(0,Math.sin(time*1.5+b.ph)),6);
+      ctx.fillRect(x,b.y,7,16);
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const lg2=ctx.createRadialGradient(x+3,b.y+4,0,x+3,b.y+4,34);
+      lg2.addColorStop(0,'rgba(255,96,70,'+(0.26*blink)+')');
+      lg2.addColorStop(1,'rgba(255,80,60,0)');
+      ctx.fillStyle=lg2; ctx.fillRect(x-34,b.y-30,72,72); ctx.restore();
+    }
   }
+  // низовой туман сращивает фон с полом
+  const fog=ctx.createLinearGradient(0,H*0.55,0,H);
+  fog.addColorStop(0,'rgba(0,0,0,0)');
+  fog.addColorStop(1,z===3?'rgba(12,5,14,.55)':(z===2?'rgba(7,6,14,.55)':'rgba(4,6,12,.55)'));
+  ctx.fillStyle=fog; ctx.fillRect(0,H*0.55,W,H*0.45);
 }
 function drawPlatform(p){
   const shake=(p.type==='crumble'&&p.touched&&!p.gone)?Math.sin(time*60)*2.2:0;
@@ -1559,10 +1628,172 @@ function drawCheck(c){
     ctx.beginPath(); ctx.arc(c.x,c.y-34,9+Math.sin(time*3)*2,0,7); ctx.stroke(); }
 }
 function drawNote(nt){
-  ctx.fillStyle='#26303f'; rr(ctx,nt.x-11,nt.y-26,22,26,3); ctx.fill();
-  ctx.fillStyle=nt.read?'#4a6fa5':'#6fb7ff';
-  rr(ctx,nt.x-8,nt.y-23,16,15,2); ctx.fill();
-  ctx.fillStyle='#0d1622'; ctx.fillRect(nt.x-6,nt.y-20,12,1.6); ctx.fillRect(nt.x-6,nt.y-16,9,1.6);
+  // смятый комок: гранёный силуэт, а не иконка
+  const bob=Math.sin(time*1.7+nt.x)*1.1;
+  ctx.save(); ctx.translate(nt.x,nt.y-11+bob);
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(0,11.5,9,2.6,0,0,7); ctx.fill();
+  const R=mulberry32(7717+Math.round(nt.x));
+  const pts=[]; for(let i=0;i<9;i++){ const a=i/9*6.283, r=7.4+R()*3.4;
+    pts.push([Math.cos(a)*r,Math.sin(a)*r*0.86]); }
+  ctx.fillStyle=nt.read?'#8f8878':'#d8d2c0';
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(90,84,70,.55)'; ctx.lineWidth=1;   // грани комка
+  for(let i=0;i<4;i++){ const k=i*2;
+    ctx.beginPath(); ctx.moveTo(pts[k][0]*0.25,pts[k][1]*0.25);
+    ctx.lineTo(pts[k][0]*0.92,pts[k][1]*0.92); ctx.stroke(); }
+  ctx.fillStyle='rgba(255,255,255,.35)';
+  ctx.beginPath(); ctx.ellipse(-2.4,-3.2,3.2,2.2,-0.5,0,7); ctx.fill();
+  ctx.restore();
+  if(nt.near&&!isTouch){                       // подсказка, что записку можно прочитать
+    const a=0.55+0.45*Math.sin(time*4);
+    ctx.save(); ctx.translate(nt.x,nt.y-34+bob*0.5);
+    ctx.font='700 13px "Chalkboard SE","Comfortaa",sans-serif'; ctx.textAlign='center';
+    const txt=LANG==='en'?'E — read':'E — прочитать';
+    const w=ctx.measureText(txt).width+16;
+    ctx.fillStyle='rgba(12,16,28,.78)'; rr(ctx,-w/2,-13,w,19,6); ctx.fill();
+    ctx.fillStyle='rgba(255,226,160,'+a+')'; ctx.fillText(txt,0,1);
+    ctx.restore();
+  }
+}
+
+// ───────── записка: комок разглаживается в лист и сминается обратно ─────────
+const PCOLS=15, PROWS=19;
+let paper=null;
+function buildPaperMesh(seed){
+  const R=mulberry32((seed|0)+4242), pts=[];
+  // следы сгибов — это линии, а не случайный шум по клеткам
+  const creases=[];
+  for(let c=0;c<7;c++){
+    const a=R()*Math.PI;
+    creases.push({nx:Math.cos(a), ny:Math.sin(a), off:(R()*2-1)*0.42,
+                  amp:(R()<0.5?-1:1)*(0.5+R()*0.5), wid:0.030+R()*0.045});
+  }
+  for(let j=0;j<PROWS;j++) for(let i=0;i<PCOLS;i++){
+    const u=i/(PCOLS-1), v=j/(PROWS-1);
+    const ang=R()*6.283, rad=0.06+R()*0.13;
+    let fz=0;
+    for(const cr of creases){
+      const d=(u-0.5)*cr.nx+(v-0.5)*cr.ny-cr.off;
+      fz+=cr.amp*Math.exp(-(d*d)/(cr.wid*cr.wid));
+    }
+    pts.push({u,v,
+      cx:(u-0.5)*0.22+Math.cos(ang)*rad,      // куда точка уходит в комке
+      cy:(v-0.5)*0.24+Math.sin(ang)*rad,
+      cz:R()*2-1,
+      fz:clamp(fz,-1.6,1.6)*0.17+(R()*2-1)*0.03,   // вмятина, которая остаётся
+      d:R()});
+  }
+  return {pts,creases};
+}
+function openPaper(){
+  if(!L||!L.note||state!=='play') return;
+  paper={u:0,dir:1,mesh:buildPaperMesh(L.n*31+Math.round(L.note.x)),
+         fx:L.note.x-cam.x, fy:L.note.y-16};
+  L.note.read=true; state='note'; keys.space=false;
+  $('hint').classList.add('hidden'); cv.style.cursor='default';
+  if(!playFile('sfx/paper',1,.8)) tone(320,880,.22,'triangle',.045);
+}
+function closePaper(){
+  if(!paper||paper.dir<0) return;
+  paper.dir=-1;
+  if(!playFile('sfx/paper',1,.7)) tone(880,320,.22,'triangle',.045);
+}
+function updatePaper(dt){
+  if(!paper) return;
+  paper.u=clamp(paper.u+paper.dir*dt*(paper.dir>0?0.95:1.25),0,1);
+  if(paper.dir<0&&paper.u<=0.001){
+    paper=null; state='play'; last=performance.now(); cv.style.cursor='none';
+  }
+}
+function drawPaper(){
+  if(!paper) return;
+  const P=paper, ss2=x=>x*x*(3-2*x);
+  const u=ss2(P.u), fly=ss2(clamp(P.u*1.5,0,1));
+  ctx.fillStyle='rgba(4,6,13,'+(0.80*u)+')'; ctx.fillRect(0,0,W,H);   // мир гаснет
+  const cx=lerp(P.fx,W/2,fly), cy=lerp(P.fy,H*0.50,fly);
+  const SW=Math.min(W*0.66,612), SH=Math.min(H*0.80,452);
+  const k=lerp(0.42,1,u), rot=lerp(0.62,-0.015,u);
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot); ctx.scale(k,k);
+  // тень под листом
+  ctx.fillStyle='rgba(0,0,0,'+(0.42*u)+')';
+  ctx.beginPath(); ctx.ellipse(8,SH*0.52,SW*0.46,SH*0.07,0,0,7); ctx.fill();
+  // считаем сетку
+  const M=P.mesh.pts, pos=new Array(M.length);
+  for(let n=0;n<M.length;n++){
+    const m=M[n];
+    const t=ss2(clamp((P.u-m.d*0.34)/(1-m.d*0.34),0,1));   // точки расправляются вразнобой
+    const x=lerp(m.cx,m.u-0.5,t)*SW, y=lerp(m.cy,m.v-0.5,t)*SH;
+    pos[n]={x,y,z:lerp(m.cz,m.fz,t)};
+  }
+  // грани — только пока бумага мятая: у ровного листа никакой сетки быть не должно
+  const fa=clamp((P.u-0.74)/0.22,0,1);
+  if(fa<0.999){
+    ctx.save(); ctx.globalAlpha=1-fa*0.85;
+    for(let j=0;j<PROWS-1;j++) for(let i=0;i<PCOLS-1;i++){
+      const a=pos[j*PCOLS+i], b=pos[j*PCOLS+i+1], c=pos[(j+1)*PCOLS+i+1], d2=pos[(j+1)*PCOLS+i];
+      const gx=(b.z+c.z-a.z-d2.z)*0.5, gy=(d2.z+c.z-a.z-b.z)*0.5;
+      const sh=clamp(0.5-gx*0.42-gy*0.30,0,1);
+      const v=Math.round(198+sh*52), v2=Math.round(186+sh*54), v3=Math.round(162+sh*54);
+      ctx.fillStyle='rgb('+v+','+v2+','+v3+')';
+      ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=1.1;     // перекрытие убирает швы
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+      ctx.lineTo(c.x,c.y); ctx.lineTo(d2.x,d2.y); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // ровный лист: цельная бумага и мягкие полосы сгибов вместо клетки
+  if(fa>0.001){
+    ctx.save(); ctx.globalAlpha=fa;
+    const pg=ctx.createLinearGradient(-SW*0.5,-SH*0.5,SW*0.5,SH*0.5);
+    pg.addColorStop(0,'#f2ead6'); pg.addColorStop(0.52,'#e9dfc7'); pg.addColorStop(1,'#dbceb2');
+    ctx.fillStyle=pg; ctx.fillRect(-SW/2,-SH/2,SW,SH);
+    ctx.save(); ctx.beginPath(); ctx.rect(-SW/2,-SH/2,SW,SH); ctx.clip();
+    ctx.save(); ctx.scale(SW,SH);                          // работаем в единичном листе
+    for(const cr of P.mesh.creases){
+      ctx.save(); ctx.rotate(Math.atan2(cr.ny,cr.nx)); ctx.translate(cr.off,0);
+      const w=cr.wid*2.4, g2=ctx.createLinearGradient(-w,0,w,0);
+      const dk=0.16*Math.abs(cr.amp), lt=0.20*Math.abs(cr.amp);
+      const s1=cr.amp>0?dk:lt, s2=cr.amp>0?lt:dk;
+      g2.addColorStop(0,'rgba(120,104,74,0)');
+      g2.addColorStop(0.46,'rgba(120,104,74,'+s1+')');
+      g2.addColorStop(0.54,'rgba(255,250,232,'+s2+')');
+      g2.addColorStop(1,'rgba(255,250,232,0)');
+      ctx.fillStyle=g2; ctx.fillRect(-w,-1,w*2,2); ctx.restore();
+    }
+    ctx.restore();
+    const R2=mulberry32(99);                                // волокна
+    ctx.fillStyle='rgba(120,106,78,.05)';
+    for(let i=0;i<260;i++) ctx.fillRect(-SW/2+R2()*SW,-SH/2+R2()*SH,1.4,1.4);
+    const vg2=ctx.createRadialGradient(0,0,SH*0.28,0,0,SH*0.78);  // подтемнение к краям
+    vg2.addColorStop(0,'rgba(90,76,52,0)'); vg2.addColorStop(1,'rgba(90,76,52,.17)');
+    ctx.fillStyle=vg2; ctx.fillRect(-SW/2,-SH/2,SW,SH);
+    ctx.restore(); ctx.restore();
+  }
+  // текст проявляется, когда лист почти разглажен
+  const ta=clamp((P.u-0.80)/0.17,0,1);
+  if(ta>0.01){
+    ctx.save(); ctx.globalAlpha=ta;
+    ctx.beginPath(); ctx.rect(-SW/2,-SH/2,SW,SH); ctx.clip();
+    ctx.fillStyle='#3a3226'; ctx.textAlign='center';
+    ctx.font='400 20px "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
+    const lines=noteText(L.note).split('\n');
+    const lh=27, y0=-lines.length*lh/2+10;
+    lines.forEach((ln,i)=>{
+      const la=clamp((P.u-0.80-i*0.010)/0.17,0,1);
+      ctx.globalAlpha=ta*la;
+      ctx.fillText(ln,0,y0+i*lh);
+    });
+    ctx.globalAlpha=ta*0.5;
+    ctx.font='400 14px "Chalkboard SE","Comfortaa",sans-serif';
+    ctx.fillStyle='#6b6152';
+    ctx.fillText(LANG==='en'?(isTouch?'NOTE — close':'E — close'):(isTouch?'ЗАПИСКА — закрыть':'E — закрыть'),0,SH/2-22);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 // ───────── роботы и скины ─────────
 const ROBOTS=[
@@ -2003,10 +2234,10 @@ function touchStuff(){
   const b=heroBox();
   L.checks.forEach((c,i)=>{ if(!c.on&&Math.abs(hero.x-c.x)<26&&Math.abs(hero.y-c.y)<50){
     c.on=true; spawnPt={x:c.x,y:c.y-30,i:i}; sfx.ding(); say('Я запомнил это место.',1.6); } });
-  if(L.note&&!L.note.read&&Math.abs(hero.x-L.note.x)<28&&Math.abs(hero.y-L.note.y)<50){
-    L.note.read=true; playFile('sfx/note',1,.6);
-    say('Тут кто-то был... до меня.',2);
-    showHint(L.note.text,7);
+  if(L.note){
+    const wasNear=L.note.near;
+    L.note.near=Math.abs(hero.x-L.note.x)<34&&Math.abs(hero.y-L.note.y)<52&&hero.dead<=0;
+    if(L.note.near&&!wasNear&&!L.note.read) say('Тут кто-то был... до меня.',2);
   }
   if(aabb(b,L.exit)){ if(net.on) coFinish(); else winLevel(); }
 }
@@ -3005,14 +3236,20 @@ function frame(now){
   if(state!=='wires') drawCursor();
   if(state==='play'){ drawOverlay(); drawOnboard(); }
   if(isTouch&&state==='play') drawStick();
-  if(isTouch){ const en=(state==='play'&&L&&L.door&&!L.door.open&&L.door.near);
-    be.classList.toggle('show',!!en); }
+  if(isTouch){
+    const dOn=(state==='play'&&L&&L.door&&!L.door.open&&L.door.near);
+    const nOn=(state==='play'&&L&&L.note&&L.note.near)||state==='note';
+    be.classList.toggle('show',!!(dOn||nOn));
+    const lbl=nOn?'ЗАПИСКА':'ЩИТОК';
+    if(be.dataset.lbl!==lbl){ be.dataset.lbl=lbl; be.textContent=tr(lbl); }
+  }
   if(state!=='play') keys.eHit=false;
   const pv=(state==='play')?'visible':'hidden';
   if(bp.style.visibility!==pv) bp.style.visibility=pv;
   const lv=(state==='play'||state==='wires')?'hidden':'visible';   // в финале язык переключать можно
   if(bl&&bl.style.visibility!==lv){ bl.style.visibility=lv;
     if(lv==='hidden') $('langMenu').classList.add('hidden'); }
+  if(state==='note'){ updatePaper(dt); drawPaper(); }
   if(state==='wires') drawWires();
   if(!$('skins').classList.contains('hidden')) drawPreview();
   if(!$('coPick').classList.contains('hidden')) drawCoPrev();
