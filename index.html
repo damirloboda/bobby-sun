@@ -1566,8 +1566,8 @@ function drawNote(nt){
 }
 // ───────── роботы и скины ─────────
 const ROBOTS=[
-  {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna',jump:1.10},  // нет ранца — компенсируем прыжком
-  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt',fly:true,jump:1}
+  {name:'БОББИ',bw:26,bh:22,r:7,eyes:1,top:'antenna',jump:1.10,g:'m'},  // нет ранца — компенсируем прыжком
+  {name:'ГАЙКА',bw:30,bh:19,r:9.5,eyes:2,top:'bolt',fly:true,jump:1,g:'f'}
 ];
 const SKINS=[
   {name:'Классик',body:'#c3ccd8',trim:'#9aa5b4',line:'#2b3340',eye:'#ffd9a0'},
@@ -2024,7 +2024,7 @@ function winLevel(){
   for(let i=0;i<40;i++) parts.push({x:L.exit.x+22,y:L.exit.y+20,
     vx:(Math.random()*2-1)*200,vy:-Math.random()*320,life:1+Math.random(),
     r:2+Math.random()*3,c:['#ffd166','#7ee081','#9be3ff'][i%3],g:520});
-  if(cur===100){ state='ending'; endT=0; $('hud').classList.add('hidden'); $('win').classList.add('hidden'); $('hint').classList.add('hidden'); return; }
+  if(cur===100){ state='ending'; endT=0; endWho=null; endBuild(); $('hud').classList.add('hidden'); $('win').classList.add('hidden'); $('hint').classList.add('hidden'); return; }
   $('winTitle').textContent=tr(['','ГОТОВО!','ХОРОШО!','ИДЕАЛЬНО!'][st]);
   $('winMsg').innerHTML=(CHAPTER[cur]?tr(CHAPTER[cur]).replace('\n','<br>')
     :tr(['','Бобби выжил. Сам он не понял как.','Быстро. Он даже не успел испугаться.',
@@ -2180,10 +2180,45 @@ $('btnSound').onclick=toggleSound;
 $('btnSound').textContent=SND?'🔊':'🔇';
 
 // ───────── финал ─────────
-const END=['Дверь открылась.','За ней не было потолка.',
-  'Бобби впервые увидел свет, который не двигался за курсором.',
-  'Он обернулся, чтобы сказать спасибо.','Но при солнце тебя не видно.',
-  'Ты всё ещё здесь.','Просто теперь он дойдёт сам.','','СПАСИБО, ЧТО ВЁЛ ЕГО.'];
+const END_TX={
+ ru:{open:'Дверь открылась.', noceil:'За ней не было потолка.',
+  saw:{m:'Бобби впервые увидел свет, который не двигался за курсором.',
+       f:'Гайка впервые увидела свет, который не двигался за курсором.',
+       p:'Они впервые увидели свет, который не двигался за курсором.'},
+  turn:{m:'Он обернулся, чтобы сказать спасибо.',
+        f:'Она обернулась, чтобы сказать спасибо.',
+        p:'Они обернулись, чтобы сказать спасибо.'},
+  unseen:'Но при солнце тебя не видно.', here:'Ты всё ещё здесь.',
+  alone:{m:'Просто теперь он дойдёт сам.',f:'Просто теперь она дойдёт сама.',
+         p:'Просто теперь они дойдут сами.'},
+  thanks:{m:'СПАСИБО, ЧТО ВЁЛ ЕГО.',f:'СПАСИБО, ЧТО ВЁЛ ЕЁ.',p:'СПАСИБО, ЧТО ВЁЛ ИХ.'}},
+ en:{open:'The door opened.', noceil:'Behind it there was no ceiling.',
+  saw:{m:'For the first time Bobby saw a light that did not follow a cursor.',
+       f:'For the first time Gaika saw a light that did not follow a cursor.',
+       p:'For the first time they saw a light that did not follow a cursor.'},
+  turn:{m:'He turned around to say thank you.',
+        f:'She turned around to say thank you.',
+        p:'They turned around to say thank you.'},
+  unseen:'But in sunlight you cannot be seen.', here:'You are still here.',
+  alone:{m:'He just does not need you to walk anymore.',
+         f:'She just does not need you to walk anymore.',
+         p:'They just do not need you to walk anymore.'},
+  thanks:{m:'THANK YOU FOR LEADING HIM.',f:'THANK YOU FOR LEADING HER.',
+          p:'THANK YOU FOR LEADING THEM.'}}};
+// кто именно дошёл до солнца: один робот или оба игрока
+function endCast(){
+  const me={ri:rbI(),si:skI()};
+  if(net.on) return {co:true,who:[me,{ri:net.remote.r|0,si:net.remote.k|0}]};
+  return {co:false,who:[me]};
+}
+let END=[];
+function endBuild(){
+  const c=endCast(), X=END_TX[LANG==='en'?'en':'ru'];
+  const g=c.co?'p':((ROBOTS[c.who[0].ri]||ROBOTS[0]).g||'m');
+  END=[X.open,X.noceil,X.saw[g],X.turn[g],X.unseen,X.here,X.alone[g],'',X.thanks[g]];
+  return c;
+}
+let endWho=null;
 // каждая строка живёт под свою долю сцены, а не по общему таймеру
 const ENDT=[[0.6,3.4],[3.8,6.6],[7.0,10.6],[11.2,14.2],[14.6,17.4],
             [17.8,20.6],[21.0,23.8],null,[24.8,1e9]];
@@ -2306,29 +2341,45 @@ function drawEnding(){
     ctx.restore();
   }
 
-  // ── Бобби ──
-  let bx=lerp(dX+22,W*0.48,stepOut); bx=lerp(bx,sx-6,away);
+  // ── те, кто дошёл: один робот или двое ──
+  if(!endWho) endWho=endBuild();
+  const cast=endWho.who;
+  const bx0=lerp(dX+22,W*0.48,stepOut), bxA=lerp(bx0,sx-6,away);
   const sc=lerp(1.7,1.02,away);
   const walking=(stepOut>0.02&&stepOut<0.98)||(away>0.02&&away<0.98);
   const shLen=lerp(168,38,sunUp)*sc;
-  ctx.save();                                                 // длинная тень от солнца
-  ctx.translate(bx-shLen*0.42,yG+3); ctx.scale(1,0.17*sc);
-  const shg=ctx.createRadialGradient(0,0,0,0,0,shLen*0.66);
-  shg.addColorStop(0,'rgba(22,11,6,'+(0.26+0.22*sunUp)+')');
-  shg.addColorStop(0.55,'rgba(22,11,6,'+(0.12+0.10*sunUp)+')');
-  shg.addColorStop(1,'rgba(22,11,6,0)');
-  ctx.fillStyle=shg; ctx.beginPath(); ctx.arc(0,0,shLen*0.66,0,7); ctx.fill();
-  ctx.restore();
-  let look=0.85, er=3.4, lookY=0;
+  let look=0.85, er=3.4;
   if(T>10.6) look=lerp(0.85,0,turn);
   if(bloom>0.02){ look=Math.sin(T*2.3)*0.6; er=lerp(3.4,1.5,bloom); }
   if(away>0.02) look=lerp(look,0.9,away);
-  lookY=-ph(6.2,8.2)*(1-ph(10.8,11.8));
-  ctx.save(); ctx.translate(bx,yG+1); ctx.scale(sc,sc);
-  ctx.globalAlpha=clamp(doorOpen*1.6,0,1);
-  drawRobot(ctx,rbI(),skI(),{x:0,y:0,t:T,gait:T*7,walk:walking,look,lookY,er,
-    lean:walking?0.05:0, squash:0});
-  ctx.restore();
+  const lookY=-ph(6.2,8.2)*(1-ph(10.8,11.8));
+  const nameA=clamp((T-12.4)/1.1,0,1)*(1-ph(24.4,25.4));   // имена — после того, как обернулись
+  cast.forEach((r,i)=>{
+    const off=cast.length>1?(i===0?-42:42)*sc*0.62:0;
+    const bx=bxA+off, ph2=i*1.9;                            // второй шагает не в ногу
+    ctx.save();                                             // длинная тень от солнца
+    ctx.translate(bx-shLen*0.42,yG+3); ctx.scale(1,0.17*sc);
+    const shg=ctx.createRadialGradient(0,0,0,0,0,shLen*0.66);
+    shg.addColorStop(0,'rgba(22,11,6,'+(0.26+0.22*sunUp)+')');
+    shg.addColorStop(0.55,'rgba(22,11,6,'+(0.12+0.10*sunUp)+')');
+    shg.addColorStop(1,'rgba(22,11,6,0)');
+    ctx.fillStyle=shg; ctx.beginPath(); ctx.arc(0,0,shLen*0.66,0,7); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.translate(bx,yG+1); ctx.scale(sc,sc);
+    ctx.globalAlpha=clamp(doorOpen*1.6,0,1);
+    drawRobot(ctx,rbI()===r.ri&&skI()===r.si?rbI():r.ri,r.si,
+      {x:0,y:0,t:T+ph2,gait:T*7+ph2,walk:walking,look,lookY,er,
+       lean:walking?0.05:0,squash:0});
+    ctx.restore();
+    if(nameA>0.01){                                          // имя робота
+      ctx.save(); ctx.globalAlpha=nameA*0.92; ctx.textAlign='center';
+      ctx.font='700 13px "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
+      ctx.shadowColor='rgba(30,14,4,.8)'; ctx.shadowBlur=10;
+      ctx.fillStyle='#fff0d2';
+      ctx.fillText(tr((ROBOTS[r.ri]||ROBOTS[0]).name),bx,yG+22);
+      ctx.restore();
+    }
+  });
 
   // ── твой свет: он всё ещё здесь, у самого зрителя ──
   const youGlow=ph(17.6,19.0)*(1-ph(22.8,23.9));
@@ -2670,8 +2721,10 @@ function coFinish(){
 function coAdvance(){
   if(!(net.done&&net.remote.done)) return;
   if(cur>=100){
-    $('coWaitMsg').textContent=tr('Вы прошли все сто уровней. Вдвоём.');
-    $('btnSpec').style.display='none';
+    // раньше кооп-прохождение обрывалось строчкой текста — финал не играл вовсе
+    state='ending'; endT=0; endWho=null; endBuild();
+    $('hud').classList.add('hidden'); $('coWait').classList.add('hidden');
+    $('win').classList.add('hidden'); $('hint').classList.add('hidden');
     return;
   }
   if(net.role==='host'){ const nx=cur+1;
