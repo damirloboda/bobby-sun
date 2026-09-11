@@ -631,8 +631,10 @@ const PIECES=[
    const w=300+A.rnd()*60;
    A.plat(A.x,A.y,w);
    const cw=70+A.rnd()*50, cx=A.x+90+A.rnd()*(w-190-cw);
-   A.plat(cx,A.y-176,cw,'solid',{ceil:true});   // это потолок, а не площадка: без чекпоинтов
-   A.spike(cx+4,A.y-152,cw-8,true);
+   // Плиту подрезает потолок цеха, а шипы под ней — нет, и они уезжали внутрь плиты.
+   // Считаем подрезанную высоту сами и вешаем шипы ровно под неё.
+   const cy=Math.max(70,A.y-176);
+   if(A.y-cy>=120){ A.plat(cx,cy,cw,'solid',{ceil:true}); A.spike(cx+4,cy+24,cw-8,true); }
    return {w,out:A.y}; }},
 
  {id:'spiderDen', hard:2, need:'spider', make(A){
@@ -742,8 +744,10 @@ function buildLevel(n){
       if(rnd()>0.16+0.30*d) continue;
       const cw=70+rnd()*60, cx=p.x+80+rnd()*(p.w-160-cw);
       if(L.haz.some(h=>h.x<cx+cw+20&&h.x+(h.w||0)>cx-20)) continue;
-      A.plat(cx,p.y-176,cw,'solid',{ceil:true});
-      A.spike(cx+4,p.y-152,cw-8,true);
+      const cy=Math.max(70,p.y-176);
+      if(p.y-cy<120) continue;
+      A.plat(cx,cy,cw,'solid',{ceil:true});
+      A.spike(cx+4,cy+24,cw-8,true);
     }
   }
   // пилы над провалами — иначе прыжок через яму ничем не рискует
@@ -1424,9 +1428,41 @@ function drawPlatform(p){
       ctx.lineTo(x+i+1,y+7); ctx.lineTo(x+i-6,y+7); ctx.closePath(); ctx.fill(); }
   }
   if(p.type==='crumble'){
-    ctx.strokeStyle='#231a14'; ctx.lineWidth=1.6; ctx.beginPath();
-    ctx.moveTo(x+p.w*.3,y); ctx.lineTo(x+p.w*.42,y+p.h);
-    ctx.moveTo(x+p.w*.65,y); ctx.lineTo(x+p.w*.55,y+p.h); ctx.stroke();
+    const R3=mulberry32(1300+Math.round(p.ox));
+    const stress=p.touched&&!p.gone?1:0;
+    // выкрошенная верхняя кромка
+    ctx.fillStyle='rgba(0,0,0,.34)';
+    for(let i=0;i<Math.max(3,p.w/24);i++){
+      const bx2=x+6+R3()*(p.w-14), bw2=3+R3()*6, bh2=2+R3()*3.4;
+      ctx.fillRect(bx2,y,bw2,bh2);
+    }
+    // трещины ветвятся, а под нагрузкой ещё и подсвечиваются
+    ctx.lineCap='round';
+    for(let c2=0;c2<3;c2++){
+      const sx2=x+p.w*(0.22+c2*0.27)+R3()*8;
+      ctx.strokeStyle=stress?'rgba(255,138,84,'+(0.5+0.5*Math.sin(time*22+c2))+')':'rgba(26,18,13,.75)';
+      ctx.lineWidth=stress?2:1.6;
+      ctx.beginPath(); ctx.moveTo(sx2,y+1);
+      let px2=sx2, py2=y+1;
+      for(let k=0;k<3;k++){ px2+=(R3()*2-1)*7; py2+=p.h/3;
+        ctx.lineTo(px2,Math.min(py2,y+p.h-1)); }
+      ctx.stroke();
+      const bx3=sx2+(R3()*2-1)*9;                      // ответвление
+      ctx.beginPath(); ctx.moveTo(sx2+2,y+p.h*0.45);
+      ctx.lineTo(bx3,y+p.h*0.78); ctx.stroke();
+    }
+    // сыплется крошка, когда уже наступили
+    if(stress&&Math.random()<0.5){
+      parts.push({x:x+6+Math.random()*(p.w-12),y:y+p.h,
+        vx:(Math.random()*2-1)*26,vy:20+Math.random()*50,
+        life:.35+Math.random()*.3,r:.9+Math.random()*1.5,c:'#6b5340',g:640});
+    }
+    ctx.fillStyle='rgba(0,0,0,.28)';                   // скол снизу
+    for(let i=0;i<Math.max(2,p.w/34);i++){
+      const bx2=x+8+R3()*(p.w-18);
+      ctx.beginPath(); ctx.moveTo(bx2,y+p.h);
+      ctx.lineTo(bx2+5+R3()*7,y+p.h); ctx.lineTo(bx2+2,y+p.h-3-R3()*3); ctx.closePath(); ctx.fill();
+    }
   }
 }
 // насколько ярко на точку мира падает свет игрока и с какой она стороны
@@ -1485,9 +1521,13 @@ function drawSaw(h){
     ctx.lineTo(Math.cos(a+.21)*(h.r*1.02),Math.sin(a+.21)*(h.r*1.02));
   }
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,'+(0.30+0.45*lit.k)+')';  // напайки на остриях
-  for(let i=0;i<14;i++){ const a=i/14*Math.PI*2+.10;
-    ctx.beginPath(); ctx.arc(Math.cos(a)*h.r*1.30,Math.sin(a)*h.r*1.30,1.3,0,7); ctx.fill(); }
+  ctx.strokeStyle='rgba(255,248,235,'+(0.22+0.42*lit.k)+')';  // заточка по режущей кромке
+  ctx.lineWidth=1.2;
+  for(let i=0;i<14;i++){ const a=i/14*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*h.r,Math.sin(a)*h.r);
+    ctx.lineTo(Math.cos(a+.10)*(h.r*1.34),Math.sin(a+.10)*(h.r*1.34));
+    ctx.stroke(); }
   ctx.strokeStyle='rgba(0,0,0,.32)'; ctx.lineWidth=1.4;     // прорези полотна
   for(let i=0;i<4;i++){ const a=i/4*Math.PI*2;
     ctx.beginPath(); ctx.arc(0,0,h.r*0.72,a+0.18,a+0.86); ctx.stroke(); }
@@ -1712,12 +1752,40 @@ function drawExit(){
   ctx.restore();
 }
 function drawCheck(c){
-  ctx.fillStyle='#3a4049'; ctx.fillRect(c.x-2,c.y-30,4,30);
-  const on=c.on;
-  ctx.fillStyle=on?'#7dffa0':'#7a3a3a';
-  ctx.beginPath(); ctx.arc(c.x,c.y-34,5.5,0,7); ctx.fill();
-  if(on){ ctx.strokeStyle='rgba(125,255,160,.45)'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.arc(c.x,c.y-34,9+Math.sin(time*3)*2,0,7); ctx.stroke(); }
+  // Раньше это была палка с точкой. Теперь сигнальный фонарь на кронштейне.
+  const on=c.on, lt=litAt(c.x,c.y-26,340);
+  const pulse=on?(0.72+0.28*Math.sin(time*2.6)):(0.5+0.5*Math.sin(time*1.4));
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,.34)';                       // тень у основания
+  ctx.beginPath(); ctx.ellipse(c.x,c.y-1,10,2.6,0,0,7); ctx.fill();
+  const mb=Math.round(56+lt.k*70);
+  ctx.fillStyle='rgb('+mb+','+(mb+6)+','+(mb+14)+')';
+  ctx.fillRect(c.x-6,c.y-5,12,5);                        // пятка
+  ctx.fillRect(c.x-2.5,c.y-30,5,26);                     // стойка
+  for(let i=0;i<3;i++) ctx.fillRect(c.x-4,c.y-11-i*8,8,2);   // рёбра
+  ctx.fillRect(c.x-7,c.y-38,14,9);                       // корпус фонаря
+  ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(c.x-7,c.y-30,14,2);
+  const col=on?[126,255,160]:[255,104,92];
+  ctx.fillStyle='rgb('+col[0]+','+col[1]+','+col[2]+')'; // стекло
+  ctx.globalAlpha=0.55+0.45*pulse;
+  rr(ctx,c.x-5,c.y-36.5,10,6,2); ctx.fill();
+  ctx.globalAlpha=1;
+  ctx.fillStyle='rgb('+mb+','+(mb+6)+','+(mb+14)+')';
+  ctx.fillRect(c.x-8,c.y-40,16,3);                       // козырёк
+  ctx.save(); ctx.globalCompositeOperation='lighter';    // свет фонаря
+  const g3=ctx.createRadialGradient(c.x,c.y-34,0,c.x,c.y-34,on?46:26);
+  g3.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.34:0.18)*pulse)+')');
+  g3.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+  ctx.fillStyle=g3; ctx.fillRect(c.x-50,c.y-84,100,100);
+  if(on){                                                // конус света вниз
+    const cg=ctx.createLinearGradient(0,c.y-34,0,c.y+4);
+    cg.addColorStop(0,'rgba(126,255,160,'+(0.16*pulse)+')');
+    cg.addColorStop(1,'rgba(126,255,160,0)');
+    ctx.fillStyle=cg; ctx.beginPath();
+    ctx.moveTo(c.x-5,c.y-32); ctx.lineTo(c.x+5,c.y-32);
+    ctx.lineTo(c.x+17,c.y+4); ctx.lineTo(c.x-17,c.y+4); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore(); ctx.restore();
 }
 function drawNote(nt){
   // Терминал с печатью: из щели торчит распечатка — отсюда и берётся лист.
