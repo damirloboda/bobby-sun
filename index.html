@@ -2580,7 +2580,9 @@ const btn = document.getElementById('btnAuth');
 const tag = document.getElementById('cloudTag');
 const FB  = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
-if (!firebaseConfig.apiKey) {
+const OWN_SITE = /^(damirloboda\.github\.io|localhost|127\.0\.0\.1)$/.test(location.hostname);
+// на порталах (CrazyGames, itch и пр.) внешний вход запрещён — прогресс в localStorage
+if (!firebaseConfig.apiKey || !OWN_SITE) {
   btn.style.display = 'none';
   tag.textContent=tr('💾 прогресс сохраняется в этом браузере');
 } else {
