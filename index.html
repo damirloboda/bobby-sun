@@ -1306,23 +1306,25 @@ function decorate(){
 }
 
 // ───────── фон и мир ─────────
-// Силуэты цеха: три слоя глубины. Всё сплошной заливкой и стоит на земле —
-// тонкие контуры в воздухе читались как чертёж, а не как завод.
-const BASEY=[0.70,0.84,1.06];
+// Силуэты цеха. Ключ к глубине — разница в яркости между слоями и просветы
+// между массами: раньше всё было одного тона и сливалось в кашу из коробок.
+const BASEY=[0.62,0.80,1.08];
 const beams=[];
 for(let L2=0;L2<3;L2++){
-  const n=[20,18,10][L2];
+  const n=[9,11,6][L2];                       // меньше объектов — больше воздуха
   for(let i=0;i<n;i++){
     const r=Math.random();
-    const kind=L2===2?(r<0.7?'tower':'block')
-              :(r<0.34?'tower':(r<0.60?'block':(r<0.82?'tank':'gantry')));
-    beams.push({L:L2, kind, x:Math.random()*4200,
-      w:kind==='tank'?(46+Math.random()*34):(kind==='gantry'?(120+Math.random()*110)
-        :(kind==='tower'?(26+Math.random()*44):(90+Math.random()*120))),
-      h:kind==='tower'?(190+Math.random()*260):(kind==='tank'?(110+Math.random()*90)
-        :(kind==='gantry'?(26+Math.random()*16):(70+Math.random()*90))),
-      d:[0.16,0.31,0.52][L2]+Math.random()*0.05,
-      lamp:Math.random()<0.22, ph:Math.random()*6.28});
+    const kind=L2===2?'slab'
+             :(L2===0?(r<0.45?'stack':(r<0.75?'tank':'arch'))
+                     :(r<0.38?'stack':(r<0.62?'tank':(r<0.84?'ramp':'arch'))));
+    const wide=kind==='slab'?(150+Math.random()*190):(kind==='ramp'?(150+Math.random()*120)
+      :(kind==='tank'?(54+Math.random()*44):(40+Math.random()*90)));
+    beams.push({L:L2, kind, x:i*(2600/n)+Math.random()*150,
+      w:wide,
+      h:kind==='slab'?(180+Math.random()*220):(kind==='ramp'?(40+Math.random()*26)
+        :(kind==='tank'?(130+Math.random()*120):(200+Math.random()*300))),
+      d:[0.13,0.30,0.56][L2],
+      lamp:L2===1&&Math.random()<0.28, ph:Math.random()*6.28});
   }
 }
 for(let i=0;i<60;i++) motes.push({x:Math.random()*W,y:Math.random()*H,s:.08+Math.random()*.25,r:.6+Math.random()*1.4,p:Math.random()*6});
@@ -1337,69 +1339,68 @@ function drawBackdrop(){
     z===3?'#160c19':(z===2?'#100c1c':'#090e18'),
     z===3?'#1e1123':(z===2?'#151027':'#0d1322'),
     z===3?'#0a0610':(z===2?'#07060f':'#05080f')];   // ближний слой почти чёрный — рамка кадра
-  // Фон виден только там, куда попал свет, поэтому силуэты не заливаем плоско,
-  // а освещаем от курсора: ближняя грань светлеет, дальняя уходит в тень.
-  const LR=520;
-  const shade=(x,w,top,h,tone)=>{
-    const cxs=x+w/2, cys=top+h/2;
-    const d=Math.hypot(cxs-view.sx,cys-view.sy);
-    const li=clamp(1-d/LR,0,1)*clamp(1-d/LR,0,1);
-    const base=parseInt(tone.slice(1),16);
-    const br=(v,k)=>Math.min(255,Math.round(v+k*54));
-    const r0=base>>16, g0=(base>>8)&255, b0=base&255;
-    const lit=(k)=>'rgb('+br(r0,k)+','+br(g0,k)+','+br(b0,k)+')';
-    const toL=view.sx>cxs?1:-1;
-    const gr2=ctx.createLinearGradient(x+(toL<0?w:0),0,x+(toL<0?0:w),0);
-    gr2.addColorStop(0,lit(li*1.15)); gr2.addColorStop(0.55,lit(li*0.55));
-    gr2.addColorStop(1,lit(li*0.12));
-    return gr2;
-  };
+  // Свет игрока скользит по силуэтам, но чем дальше слой, тем слабее отклик —
+  // иначе дальний план лезет вперёд и глубина рушится.
+  const LR=[300,520,420];
+  const PAL=[
+    z===3?[26,16,30]:(z===2?[20,15,36]:[15,22,38]),      // дальний: холодный и тусклый
+    z===3?[38,22,42]:(z===2?[28,20,48]:[19,28,48]),      // средний
+    z===3?[8,5,12]:(z===2?[6,5,13]:[4,6,13])];           // ближний: почти чёрный
+  const REACT=[0.35,1.0,0.12];
   for(const b of beams){
     const sx=b.x-cam.x*b.d;
-    const x=((sx%2600)+2600)%2600-260;
-    if(x<-260||x>W+260) continue;
-    const by=H*BASEY[b.L];                           // силуэт стоит, а не висит
-    const top=by-b.h;
-    ctx.fillStyle=shade(x,b.w,top,b.h,tones[b.L]);
-    if(b.kind==='tower'){
-      ctx.fillRect(x,top,b.w,b.h+60);
-      ctx.fillRect(x-6,top,b.w+12,9);                // оголовок
-      ctx.fillStyle='rgba(0,0,0,.30)';               // швы панелей
-      for(let y2=top+26;y2<by;y2+=34) ctx.fillRect(x,y2,b.w,2);
-    } else if(b.kind==='block'){
-      ctx.fillRect(x,top,b.w,b.h+60);
-      ctx.fillRect(x+b.w*0.18,top-22,14,24);         // трубы на крыше
-      ctx.fillRect(x+b.w*0.62,top-30,11,32);
-      ctx.fillStyle='rgba(0,0,0,.26)';
-      for(let y2=top+22;y2<by;y2+=30) ctx.fillRect(x,y2,b.w,2);
-      for(let x2=x+16;x2<x+b.w-8;x2+=26)             // заклёпки
-        for(let y2=top+12;y2<by-10;y2+=30){ ctx.beginPath(); ctx.arc(x2,y2,1.3,0,7); ctx.fill(); }
+    const x=((sx%2600)+2600)%2600-300;
+    if(x<-320||x>W+320) continue;
+    const by=H*BASEY[b.L], top=by-b.h;
+    const cxs=x+b.w/2, cys=top+b.h/2;
+    const dd=Math.hypot(cxs-view.sx,cys-view.sy);
+    const li=clamp(1-dd/LR[b.L],0,1)*clamp(1-dd/LR[b.L],0,1)*REACT[b.L];
+    const P=PAL[b.L];
+    const tone=(k)=>'rgb('+Math.min(255,Math.round(P[0]+k*70))+','
+                        +Math.min(255,Math.round(P[1]+k*72))+','
+                        +Math.min(255,Math.round(P[2]+k*78))+')';
+    const toL=view.sx>cxs?1:-1;
+    const gr2=ctx.createLinearGradient(x+(toL<0?b.w:0),0,x+(toL<0?0:b.w),0);
+    gr2.addColorStop(0,tone(li*1.2)); gr2.addColorStop(0.6,tone(li*0.5)); gr2.addColorStop(1,tone(0));
+    ctx.fillStyle=gr2;
+    if(b.kind==='stack'){
+      ctx.fillRect(x,top,b.w,b.h+80);
+      ctx.fillRect(x-7,top,b.w+14,10);                   // оголовок
+      if(b.L===1){ ctx.fillStyle='rgba(0,0,0,.34)';      // швы только на среднем плане
+        for(let y2=top+30;y2<by;y2+=40) ctx.fillRect(x,y2,b.w,2); }
     } else if(b.kind==='tank'){
       const r2=b.w*0.5;
-      ctx.beginPath();
-      ctx.moveTo(x,by); ctx.lineTo(x,top+r2);
-      ctx.arc(x+r2,top+r2,r2,Math.PI,0);
-      ctx.lineTo(x+b.w,by); ctx.closePath(); ctx.fill();
-      ctx.fillRect(x+r2-9,by,18,60);                 // опора
-      ctx.fillStyle='rgba(0,0,0,.30)';
-      ctx.fillRect(x-5,by-b.h*0.42,b.w+10,7);        // пояс
-      ctx.fillRect(x-5,by-b.h*0.70,b.w+10,5);
-    } else {                                          // эстакада
-      ctx.fillRect(x,top,b.w,b.h);
-      ctx.fillRect(x+10,by,10,52);
-      ctx.fillRect(x+b.w-22,by,10,52);
-      ctx.fillStyle='rgba(0,0,0,.3)';
-      for(let x2=x+8;x2<x+b.w-6;x2+=16) ctx.fillRect(x2,top+3,2,b.h-6);
+      ctx.beginPath(); ctx.moveTo(x,by+80); ctx.lineTo(x,top+r2);
+      ctx.arc(x+r2,top+r2,r2,Math.PI,0); ctx.lineTo(x+b.w,by+80); ctx.closePath(); ctx.fill();
+      if(b.L===1){ ctx.fillStyle='rgba(0,0,0,.32)';
+        ctx.fillRect(x-6,by-b.h*0.44,b.w+12,8); ctx.fillRect(x-6,by-b.h*0.72,b.w+12,5); }
+    } else if(b.kind==='arch'){
+      const r2=b.w*0.5;                                   // цеховой проём
+      ctx.fillRect(x,top,b.w,b.h+80);
+      ctx.save(); ctx.globalCompositeOperation='destination-out';
+      ctx.beginPath(); ctx.moveTo(x+b.w*0.22,by+80); ctx.lineTo(x+b.w*0.22,top+r2*0.9);
+      ctx.arc(x+r2,top+r2*0.9,b.w*0.28,Math.PI,0); ctx.lineTo(x+b.w*0.78,by+80);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    } else if(b.kind==='ramp'){
+      ctx.beginPath(); ctx.moveTo(x,top+b.h); ctx.lineTo(x+b.w,top-40);
+      ctx.lineTo(x+b.w,top-40+b.h); ctx.lineTo(x,top+b.h*2); ctx.closePath(); ctx.fill();
+    } else {                                              // ближний массив-рамка
+      ctx.fillRect(x,top,b.w,b.h+120);
     }
-    if(b.lamp&&b.L<2){                                // редкая аварийная лампа в глубине
+    if(b.lamp){
       const blink=0.30+0.70*Math.pow(Math.max(0,Math.sin(time*1.3+b.ph)),8);
       ctx.save(); ctx.globalCompositeOperation='lighter';
-      const lg2=ctx.createRadialGradient(x+b.w*0.5,top-6,0,x+b.w*0.5,top-6,30);
-      lg2.addColorStop(0,'rgba(255,92,66,'+(0.20*blink)+')');
+      const lg2=ctx.createRadialGradient(x+b.w*0.5,top-8,0,x+b.w*0.5,top-8,34);
+      lg2.addColorStop(0,'rgba(255,92,66,'+(0.22*blink)+')');
       lg2.addColorStop(1,'rgba(255,80,60,0)');
-      ctx.fillStyle=lg2; ctx.fillRect(x+b.w*0.5-32,top-38,64,64); ctx.restore();
+      ctx.fillStyle=lg2; ctx.fillRect(x+b.w*0.5-36,top-42,72,72); ctx.restore();
     }
   }
+  // воздушная дымка: дальний план тонет в ней, ближний остаётся резким
+  const haze=ctx.createLinearGradient(0,0,0,H);
+  haze.addColorStop(0, z===3?'rgba(40,20,44,.34)':(z===2?'rgba(26,20,52,.32)':'rgba(16,26,48,.32)'));
+  haze.addColorStop(1, z===3?'rgba(16,8,20,.10)':(z===2?'rgba(10,8,20,.10)':'rgba(6,10,22,.10)'));
+  ctx.fillStyle=haze; ctx.fillRect(0,0,W,H);
   // низовой туман сращивает фон с полом
   const fog=ctx.createLinearGradient(0,H*0.55,0,H);
   fog.addColorStop(0,'rgba(0,0,0,0)');
