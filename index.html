@@ -2216,9 +2216,10 @@ function endBuild(){
   const c=endCast(), X=END_TX[LANG==='en'?'en':'ru'];
   const g=c.co?'p':((ROBOTS[c.who[0].ri]||ROBOTS[0]).g||'m');
   END=[X.open,X.noceil,X.saw[g],X.turn[g],X.unseen,X.here,X.alone[g],'',X.thanks[g]];
+  endLang=LANG;
   return c;
 }
-let endWho=null;
+let endWho=null, endLang=null;
 // каждая строка живёт под свою долю сцены, а не по общему таймеру
 const ENDT=[[0.6,3.4],[3.8,6.6],[7.0,10.6],[11.2,14.2],[14.6,17.4],
             [17.8,20.6],[21.0,23.8],null,[24.8,1e9]];
@@ -2342,7 +2343,7 @@ function drawEnding(){
   }
 
   // ── те, кто дошёл: один робот или двое ──
-  if(!endWho) endWho=endBuild();
+  if(!endWho||endLang!==LANG){ endWho=endBuild(); endLang=LANG; }   // язык могли переключить прямо в финале
   const cast=endWho.who;
   const bx0=lerp(dX+22,W*0.48,stepOut), bxA=lerp(bx0,sx-6,away);
   const sc=lerp(1.7,1.02,away);
@@ -2414,7 +2415,7 @@ function drawEnding(){
     ctx.save(); ctx.globalAlpha=big?Math.max(a,titleIn):a;
     ctx.textAlign='center';
     ctx.font=(big?'700 40px':'400 21px')+' "Chalkboard SE","Comic Sans MS","Comfortaa",sans-serif';
-    const lines=eWrap(ctx,tr(END[i]),W-190);
+    const lines=eWrap(ctx,END[i],W-190);
     const y0=big?H*0.40:H*0.255;
     ctx.shadowColor=darkT>0.5?'rgba(255,244,214,.95)':'rgba(0,0,0,.75)';
     ctx.shadowBlur=big?26:17;
@@ -2863,9 +2864,14 @@ async function initCloud(){
 initCloud();
 
 applyLangDOM();
-$('btnLang').onclick=()=>$('langMenu').classList.toggle('hidden');
+function syncLangMenu(){   // незачем предлагать язык, который уже выбран
+  $('langMenu').querySelectorAll('button').forEach(b=>{
+    b.style.display=(b.dataset.l===LANG)?'none':''; });
+}
+$('btnLang').onclick=()=>{ syncLangMenu(); $('langMenu').classList.toggle('hidden'); };
 $('langMenu').querySelectorAll('button').forEach(b=>{
-  b.onclick=()=>{ setLang(b.dataset.l); $('langMenu').classList.add('hidden'); }; });
+  b.onclick=()=>{ setLang(b.dataset.l); syncLangMenu(); $('langMenu').classList.add('hidden'); }; });
+syncLangMenu();
 // CrazyGames: «provide a simple onboarding phase where new users land directly».
 // Новый игрок начинает играть сразу, вернувшийся — получает меню с выбором уровня.
 if(save.unlocked<=1&&!Object.keys(save.done||{}).length) startLevel(1); else showMenu();
