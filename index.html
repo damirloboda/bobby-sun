@@ -661,11 +661,11 @@ function buildLevel(n){
     spider:(x,y)=>{ L.spiders.push({x:Math.round(x),y:Math.round(y),t:rnd()*6}); }};
 
   // стартовая площадка — всегда широкая и пустая
-  A.plat(0,452,220); L.start={x:80,y:412};
-  let x=220, y=452;
+  A.plat(0,452,186); L.start={x:72,y:412};
+  let x=186+Math.round(64+rnd()*34), y=452;   // разрыв сразу: старт не сливается с куском
 
   const forced={14:'bridge',30:'crumbleRow',38:'spiderDen',48:'ceilRun',52:'beltRun'}[n];
-  const segs=clamp(3+Math.round((n-6)/7),3,12);
+  const segs=clamp(3+Math.round((n-6)/8),3,10);
   let prev=null, sinceRest=0, spiders=0;
 
   for(let i=0;i<segs;i++){
@@ -686,7 +686,7 @@ function buildLevel(n){
       // чем дальше, тем чаще тяжёлые куски
       const need=y-(452-(452-YTOP)*(i/Math.max(1,segs-1)));   // насколько отстаём от подъёма
       const wt=pool.map(p=>{
-        let v=p.hard===0?(0.52-0.40*d):(p.hard===1?2.1:1.35+2.3*d);
+        let v=p.hard===0?(0.40-0.32*d):(p.hard===1?2.1:1.45+2.4*d);
         if(p.dy===-1) v*=need>60?2.6:(need>0?1.5:0.5);   // пора наверх
         if(p.dy===1)  v*=need<-40?2.2:0.45;              // забрались выше плана
         return v; });
@@ -717,7 +717,7 @@ function buildLevel(n){
     if(p===firstP||p.type!=='solid'||p.ceil||p.w<200) continue;
     if(L.haz.some(h=>h.type==='spike'&&h.x<p.x+p.w&&h.x+h.w>p.x)) continue;
     if(L.haz.some(h=>h.type==='saw'&&Math.min(h.ax,h.bx)<p.x+p.w+30&&Math.max(h.ax,h.bx)>p.x-30)) continue;
-    if(rnd()>0.44+0.40*d) continue;
+    if(rnd()>0.62+0.32*d) continue;
     const sw=36+rnd()*30, room=p.w-2*MARG-sw;
     if(room<=0) continue;
     // с обоих краёв оставляем место, чтобы приземление никогда не было на шип
@@ -731,22 +731,35 @@ function buildLevel(n){
     }
     A.spike(p.x+MARG+rnd()*room,p.y,sw);
   }
+  // шипы с потолка: про них есть подсказка в игре, но в уровнях они не встречались
+  if(n>=26){
+    for(const p of L.plats){
+      if(p===firstP||p.ceil||p.type!=='solid'||p.w<260) continue;
+      if(p.y<300) continue;                       // нужен запас сверху, чтобы было куда повесить
+      if(rnd()>0.16+0.30*d) continue;
+      const cw=70+rnd()*60, cx=p.x+80+rnd()*(p.w-160-cw);
+      if(L.haz.some(h=>h.x<cx+cw+20&&h.x+(h.w||0)>cx-20)) continue;
+      A.plat(cx,p.y-176,cw,'solid',{ceil:true});
+      A.spike(cx+4,p.y-152,cw-8,true);
+    }
+  }
   // пилы над провалами — иначе прыжок через яму ничем не рискует
-  if(n>=18){
+  if(n>=12){
     const ord=L.plats.filter(q=>!q.ceil&&q.type!=='move').sort((a,b)=>a.x-b.x);
     for(let i=1;i<ord.length;i++){
       const a=ord[i-1], b=ord[i], g=b.x-(a.x+a.w);
-      if(g<86||g>260) continue;
-      if(rnd()>0.16+0.42*d) continue;
+      if(g<80||g>270) continue;
+      if(rnd()>0.30+0.44*d) continue;
       const cx=a.x+a.w+g/2, top=Math.min(a.y,b.y);
       if(L.haz.some(h=>h.type==='saw'&&Math.abs(h.ax-cx)<150)) continue;
       A.saw(cx,top-126,cx,top-10,18+rnd()*5,1.0+rnd()*0.6,rnd()*6);
     }
   }
   // финишная площадка — тоже широкая и чистая
-  A.plat(x,y,200);
-  L.exit={x:Math.round(x+100-22),y:Math.round(y-56),w:44,h:56};
-  x+=200;
+  x+=Math.round(Math.min(gapAt(y)*0.72,62+rnd()*34));   // перед дверью тоже прыжок
+  A.plat(x,y,168);
+  L.exit={x:Math.round(x+84-22),y:Math.round(y-56),w:44,h:56};
+  x+=168;
 
   alignMovers(L);
   clearSaws(L);
