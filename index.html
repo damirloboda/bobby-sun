@@ -352,12 +352,78 @@ function noiseHit(dur,vol){
   const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=900;
   s.connect(f); f.connect(g); g.connect(a.destination); s.start();
 }
+// Звук чекпоинта под картинку: 0.22 с заряд ползёт по железу вверх,
+// на 0.22 — удар по стеклу, следом расходится аккорд и низкий гул тепла.
+function checkpointSnd(){
+  if(!SND)return; const a=actx(); if(!a)return;
+  const t0=a.currentTime, out=a.createGain();
+  out.gain.value=1; out.connect(a.destination);
+  // заряд бежит по столбу: пила сквозь резонансный фильтр, частота ползёт вверх
+  const sw=a.createOscillator(), swf=a.createBiquadFilter(), swg=a.createGain();
+  sw.type='sawtooth'; sw.frequency.setValueAtTime(70,t0);
+  sw.frequency.exponentialRampToValueAtTime(420,t0+.22);
+  swf.type='bandpass'; swf.Q.value=7;
+  swf.frequency.setValueAtTime(240,t0);
+  swf.frequency.exponentialRampToValueAtTime(1700,t0+.22);
+  swg.gain.setValueAtTime(0.0001,t0);
+  swg.gain.linearRampToValueAtTime(.030,t0+.05);
+  swg.gain.linearRampToValueAtTime(.085,t0+.205);   // нарастает прямо в момент вспышки
+  swg.gain.exponentialRampToValueAtTime(.0001,t0+.27);
+  sw.connect(swf); swf.connect(swg); swg.connect(out);
+  sw.start(t0); sw.stop(t0+.3);
+  const sub=a.createOscillator(), subg=a.createGain();   // низ под заряд, чтобы он был телесным
+  sub.type='triangle'; sub.frequency.setValueAtTime(55,t0);
+  sub.frequency.exponentialRampToValueAtTime(220,t0+.22);
+  subg.gain.setValueAtTime(.0001,t0);
+  subg.gain.linearRampToValueAtTime(.045,t0+.19);
+  subg.gain.exponentialRampToValueAtTime(.0001,t0+.28);
+  sub.connect(subg); subg.connect(out); sub.start(t0); sub.stop(t0+.3);
+  // удар по стеклу: щелчок сквозь highpass ровно в момент вспышки
+  const T=t0+.22, n=Math.floor(a.sampleRate*.09);
+  const buf=a.createBuffer(1,n,a.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);
+  const src=a.createBufferSource(); src.buffer=buf;
+  const hp=a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=2600;
+  const ng=a.createGain(); ng.gain.value=.09;
+  src.connect(hp); hp.connect(ng); ng.connect(out); src.start(T);
+  // призвуки стекла: три негармоничных партиала с разным затуханием
+  [[1318,.9,.055],[1975,.62,.040],[2637,.44,.030]].forEach(([f,dur,v])=>{
+    const o=a.createOscillator(), g=a.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(f,T);
+    o.frequency.linearRampToValueAtTime(f*0.994,T+dur);
+    g.gain.setValueAtTime(.0001,T);
+    g.gain.linearRampToValueAtTime(v,T+.006);
+    g.gain.exponentialRampToValueAtTime(.0001,T+dur);
+    o.connect(g); g.connect(out); o.start(T); o.stop(T+dur+.05);
+  });
+  // аккорд расходится вслед за вспышкой — «место запомнено»
+  [[659.25,0],[830.61,.055],[987.77,.11],[1318.51,.165]].forEach(([f,dl])=>{
+    const s0=T+.03+dl;
+    const o=a.createOscillator(), g=a.createGain(), lf=a.createOscillator(), lg=a.createGain();
+    o.type='triangle'; o.frequency.setValueAtTime(f,s0);
+    lf.type='sine'; lf.frequency.value=5.4; lg.gain.value=f*0.004;   // лёгкая вибрация пламени
+    lf.connect(lg); lg.connect(o.frequency); lf.start(s0); lf.stop(s0+1.1);
+    g.gain.setValueAtTime(.0001,s0);
+    g.gain.linearRampToValueAtTime(.042,s0+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,s0+.95);
+    o.connect(g); g.connect(out); o.start(s0); o.stop(s0+1);
+  });
+  // низкий тёплый гул: фонарь набрал тепло
+  const lo=a.createOscillator(), lg2=a.createGain();
+  lo.type='sine'; lo.frequency.setValueAtTime(110,T);
+  lo.frequency.exponentialRampToValueAtTime(164.81,T+.5);
+  lg2.gain.setValueAtTime(.0001,T);
+  lg2.gain.linearRampToValueAtTime(.055,T+.10);
+  lg2.gain.exponentialRampToValueAtTime(.0001,T+.85);
+  lo.connect(lg2); lg2.connect(out); lo.start(T); lo.stop(T+.9);
+}
 const sfx={
   jump:()=>tone(320,620,.16,'square',.06),
   land:()=>tone(180,90,.09,'sine',.07),
   push:()=>{tone(90,420,.22,'sawtooth',.09); noiseHit(.16,.09);},
   die:()=>{tone(420,60,.4,'square',.09); noiseHit(.35,.16);},
   ding:()=>{tone(1180,1560,.13,'triangle',.05);},
+  checkpoint:()=>checkpointSnd(),
   scare:()=>tone(220,110,.25,'sawtooth',.06),
   yawn:()=>tone(260,180,.35,'sine',.05),
   win:()=>{[523,659,784,1046].forEach((f,i)=>tone(f,f,.18,'triangle',.08,i*.09));},
@@ -3029,7 +3095,7 @@ function touchStuff(){
   if(hero.dead>0) return;
   const b=heroBox();
   L.checks.forEach((c,i)=>{ if(!c.on&&Math.abs(hero.x-c.x)<26&&Math.abs(hero.y-c.y)<50){
-    c.on=true; c.t0=time; spawnPt={x:c.x,y:c.y-30,i:i}; sfx.ding();
+    c.on=true; c.t0=time; spawnPt={x:c.x,y:c.y-30,i:i}; sfx.checkpoint();
     hero.jet=FUEL;                       // заправка на чекпоинте: раньше топливо давала только смерть
     say('Я запомнил это место.',1.6); } });
   if(L.note){
