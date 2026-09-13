@@ -1770,17 +1770,46 @@ function drawDoor(){
 function drawExit(){
   const e=L.exit, pulse=.6+.4*Math.sin(time*2.2);
   const x=e.x, y=e.y, w=e.w, h=e.h;
+  // Створки разъезжаются, когда Бобби подходит, и сходятся, когда уходит.
+  const near=Math.hypot(hero.x-(x+w/2),hero.y-(y+h/2))<110&&hero.dead<=0;
+  // Привод: сначала щелчок замка и дрожь, потом створки разъезжаются с инерцией.
+  const dt2=Math.min(0.05,DT||1/60);
+  e.ul=clamp((e.ul||0)+(near?dt2/0.16:-dt2/0.12),0,1);   // замок
+  if(near&&(e.ul||0)<1) e.sh=1;                            // толчок механизма
+  e.sh=(e.sh||0)*Math.pow(0.0016,dt2);
+  const tg=(near&&e.ul>=1)?1:0;
+  e.ov=((e.ov||0)+(tg-(e.op||0))*46*dt2)*Math.pow(0.012,dt2);
+  e.op=clamp((e.op||0)+e.ov*dt2,0,1.06);
+  const op=clamp(e.op,0,1), shk=e.sh*Math.sin(time*46)*0.8;
   ctx.save();
-  ctx.fillStyle='#1b1f26'; rr(ctx,x-6,y-9,w+12,h+9,4); ctx.fill();   // косяк
-  ctx.fillStyle='#13161c'; ctx.fillRect(x-6,y-9,w+12,5);              // притолока
-  ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(x-6,y-9,w+12,1);
+  const PK=5.5;                                                      // карманы, куда уезжают створки
+  ctx.fillStyle='#1b1f26'; rr(ctx,x-6-PK,y-9,w+12+PK*2,h+9,4); ctx.fill();   // косяк
+  ctx.fillStyle='#13161c'; ctx.fillRect(x-6-PK,y-9,w+12+PK*2,5);              // притолока
+  ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(x-6-PK,y-9,w+12+PK*2,1);
   ctx.fillStyle='#0b0e13'; rr(ctx,x-1.5,y-2,w+3,h+2,3); ctx.fill();   // проём
+  if(op>0.002){                                                      // за створками свет
+    const ig=ctx.createLinearGradient(0,y,0,y+h);
+    ig.addColorStop(0,'rgba(150,255,190,'+(0.42*op)+')');
+    ig.addColorStop(1,'rgba(90,220,150,'+(0.16*op)+')');
+    ctx.fillStyle=ig; ctx.fillRect(x-1.5,y-2,w+3,h+2);
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const sp2=ctx.createRadialGradient(x+w/2,y+h*0.55,0,x+w/2,y+h*0.55,20+op*70);
+    sp2.addColorStop(0,'rgba(150,255,190,'+(0.26*op)+')');
+    sp2.addColorStop(1,'rgba(120,240,170,0)');
+    ctx.fillStyle=sp2; ctx.fillRect(x-80,y-60,w+160,h+130); ctx.restore();
+  }
   const gap=1.5, lw=(w-gap*2)/2;
+  ctx.save(); ctx.beginPath(); ctx.rect(x-1.5,y-2,w+3,h+2); ctx.clip();  // уезжают в косяк
   for(const sd of [0,1]){                                            // две створки
-    const lx=x+(sd?lw+gap*2:0);
+    const lx=x+(sd?lw+gap*2:0)+(sd?1:-1)*(op*(lw+gap+PK*0.8)+shk*(sd?-1:1));
     const g=ctx.createLinearGradient(lx,0,lx+lw,0);
-    g.addColorStop(0,'#474e5c'); g.addColorStop(.5,'#3a414d'); g.addColorStop(1,'#2e343e');
+    if(sd){ g.addColorStop(0,'#2a3039'); g.addColorStop(.45,'#3d4553'); g.addColorStop(1,'#22272f'); }
+    else  { g.addColorStop(0,'#22272f'); g.addColorStop(.55,'#3d4553'); g.addColorStop(1,'#2a3039'); }
     ctx.fillStyle=g; rr(ctx,lx,y,lw,h,2); ctx.fill();
+    const vg=ctx.createLinearGradient(0,y,0,y+h);           // вертикальная подсветка металла
+    vg.addColorStop(0,'rgba(255,255,255,.07)'); vg.addColorStop(.5,'rgba(0,0,0,0)');
+    vg.addColorStop(1,'rgba(0,0,0,.28)');
+    ctx.fillStyle=vg; ctx.fillRect(lx,y,lw,h);
     ctx.fillStyle='rgba(0,0,0,.24)'; rr(ctx,lx+3,y+6,lw-6,h*0.40,1.5); ctx.fill();
     ctx.fillStyle='rgba(255,255,255,.055)'; ctx.fillRect(lx+3,y+6,lw-6,1.4);
     ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(lx+2,y+h-10,lw-4,7);   // накладка снизу
@@ -1789,16 +1818,72 @@ function drawExit(){
       ctx.beginPath(); ctx.arc(lx+2.6,ry,.85,0,7); ctx.fill();
       ctx.beginPath(); ctx.arc(lx+lw-2.6,ry,.85,0,7); ctx.fill(); }
   }
-  ctx.strokeStyle='#98a1b2'; ctx.lineWidth=1.7; ctx.lineCap='round';   // ручки
+  ctx.strokeStyle='#98a1b2'; ctx.lineWidth=1.7; ctx.lineCap='round';   // ручки едут со створками
   ctx.beginPath();
-  ctx.moveTo(x+w/2-5,y+h*0.50); ctx.lineTo(x+w/2-5,y+h*0.50+10);
-  ctx.moveTo(x+w/2+5,y+h*0.50); ctx.lineTo(x+w/2+5,y+h*0.50+10);
+  const hv=op*(lw+gap+PK*0.8);
+  ctx.moveTo(x+w/2-5-hv-shk,y+h*0.50); ctx.lineTo(x+w/2-5-hv-shk,y+h*0.50+10);
+  ctx.moveTo(x+w/2+5+hv+shk,y+h*0.50); ctx.lineTo(x+w/2+5+hv+shk,y+h*0.50+10);
   ctx.stroke();
+  ctx.restore();                                                     // конец обрезки
+  for(const sd of [-1,1]){                                           // накладки карманов
+    const px2=sd<0?x-1.5-PK:x+w+1.5-PK+0.0, pw=PK+1.5;
+    const pgr=ctx.createLinearGradient(px2,0,px2+pw,0);
+    pgr.addColorStop(0,sd<0?'#232932':'#171c23'); pgr.addColorStop(1,sd<0?'#171c23':'#232932');
+    ctx.fillStyle=pgr; ctx.fillRect(px2,y-2,pw,h+2);
+    ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(sd<0?px2:px2+pw-1,y-2,1,h+2);
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(sd<0?px2+pw-1:px2,y-2,1,h+2);
+    ctx.fillStyle='rgba(255,255,255,.10)';
+    for(let i=0;i<3;i++){ ctx.beginPath(); ctx.arc(px2+pw/2,y+7+i*(h-16)/2,.9,0,7); ctx.fill(); }
+  }
+  const rgy=y-2.6;                                                   // верхний рельс
+  ctx.fillStyle='#20262f'; ctx.fillRect(x-1.5-PK,rgy,w+3+PK*2,2.4);
+  ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(x-1.5-PK,rgy,w+3+PK*2,.8);
+  ctx.fillStyle='rgba(190,205,225,.35)';                             // каретки едут по рельсу
+  ctx.fillRect(x+w/2-lw*0.5-1.6-hv,rgy-.4,3.2,3.2);
+  ctx.fillRect(x+w/2+lw*0.5-1.6+hv,rgy-.4,3.2,3.2);
   const sg=ctx.createLinearGradient(x+w/2-2.4,0,x+w/2+2.4,0);          // щель светится
   sg.addColorStop(0,'rgba(120,255,170,0)');
   sg.addColorStop(.5,'rgba(165,255,195,'+(.42+.34*pulse)+')');
   sg.addColorStop(1,'rgba(120,255,170,0)');
+  ctx.globalAlpha=(1-op)*(1-op);                                     // щель гаснет, когда открыто
   ctx.fillStyle=sg; ctx.fillRect(x+w/2-2.4,y+2,4.8,h-4);
+  ctx.globalAlpha=1;
+  // створки уходят в косяк: затемнение у краёв проёма
+  const eg=ctx.createLinearGradient(x-1.5,0,x+w*0.22,0);
+  eg.addColorStop(0,'rgba(0,0,0,'+(0.55*op)+')'); eg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=eg; ctx.fillRect(x-1.5,y-2,w*0.24,h+2);
+  const eg2=ctx.createLinearGradient(x+w+1.5,0,x+w*0.78,0);
+  eg2.addColorStop(0,'rgba(0,0,0,'+(0.55*op)+')'); eg2.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=eg2; ctx.fillRect(x+w*0.76,y-2,w*0.24+1.5,h+2);
+  if(op>0.01){
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const beam=ctx.createLinearGradient(0,y+h,0,y+h+40);   // луч ложится на пол
+    beam.addColorStop(0,'rgba(150,255,190,'+(0.26*op)+')');
+    beam.addColorStop(1,'rgba(120,240,170,0)');
+    ctx.fillStyle=beam; ctx.beginPath();
+    ctx.moveTo(x,y+h); ctx.lineTo(x+w,y+h);
+    ctx.lineTo(x+w+34,y+h+38); ctx.lineTo(x-34,y+h+38); ctx.closePath(); ctx.fill();
+    for(let i=0;i<7;i++){                                  // пылинки в луче
+      const t2=(time*0.32+i/7)%1;
+      const px=x+6+((i*13.7)%(w-12)), py=y+h-4-t2*(h*0.75);
+      ctx.fillStyle='rgba(190,255,215,'+(0.30*op*(1-t2))+')';
+      ctx.beginPath(); ctx.arc(px+Math.sin(time*1.6+i)*2.2,py,0.9,0,7); ctx.fill();
+    }
+    ctx.restore();
+    ctx.fillStyle='rgba(160,255,200,'+(0.34*op)+')';       // световая кромка порога
+    ctx.fillRect(x-2,y+h-1.4,w+4,1.8);
+  }
+  for(const sd of [-1,1]){                                 // лампы на раме: красная -> зелёная
+    const lx2=x+sd*(w/2+4.5), ly2=y-4.5;
+    const on2=op>0.45;
+    ctx.fillStyle=on2?'rgba(126,255,160,'+(0.65+0.35*pulse)+')':'rgba(255,96,80,'+(0.5+0.3*pulse)+')';
+    ctx.beginPath(); ctx.arc(lx2,ly2,1.9,0,7); ctx.fill();
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const lgg=ctx.createRadialGradient(lx2,ly2,0,lx2,ly2,13);
+    lgg.addColorStop(0,on2?'rgba(126,255,160,.34)':'rgba(255,96,80,.26)');
+    lgg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lgg; ctx.fillRect(lx2-14,ly2-14,28,28); ctx.restore();
+  }
   ctx.fillStyle='#10151a'; rr(ctx,x+3,y-16,w-6,11,2); ctx.fill();      // табличка
   ctx.fillStyle='rgba(120,255,150,'+(.55+.45*pulse)+')';
   rr(ctx,x+4.5,y-14.6,w-9,8.2,2); ctx.fill();
@@ -2242,7 +2327,7 @@ function drawDarkness(){
   if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
   if(L.door){ hole(L.door.box.x-cam.x,L.door.y-40,44,.72);
     hole(L.door.x-cam.x,L.door.y-52,52,.6); }
-  hole(L.exit.x+L.exit.w/2-cam.x,L.exit.y+L.exit.h/2,64,.62);
+  hole(L.exit.x+L.exit.w/2-cam.x,L.exit.y+L.exit.h/2,46+20*clamp(L.exit.op||0,0,1),.52+.16*clamp(L.exit.op||0,0,1));
   dtx.globalCompositeOperation='source-over';
   ctx.drawImage(dcv,0,0,W,H);
 }
@@ -2304,7 +2389,8 @@ function drawGlows(){
     if(ok&&L.door.cur<1&&L.door.cur>=0){ const pt=wirePt(L.door,L.door.cur);
       glow(pt.x,pt.y,40,'rgba(255,225,110,%A%)',.5); }
   }
-  glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,70,'rgba(110,255,150,%A%)',.30);
+  { const eo=clamp(L.exit.op||0,0,1);   // закрытая дверь светит только щелью
+    glow(L.exit.x+L.exit.w/2,L.exit.y+L.exit.h/2,32+42*eo,'rgba(110,255,150,%A%)',.11+.26*eo); }
   glow((net.on&&net.spectate)?net.remote.dx:hero.x,
        ((net.on&&net.spectate)?net.remote.dy:hero.y)-8,46,'rgba(255,210,150,%A%)',.16);
   if(ROBOTS[rbI()].fly&&hero.dead<=0)
@@ -2649,7 +2735,7 @@ const END_TX={
   unseen:'Но при солнце тебя не видно.', here:'Ты всё ещё здесь.',
   alone:{m:'Просто теперь он дойдёт сам.',f:'Просто теперь она дойдёт сама.',
          p:'Просто теперь они дойдут сами.'},
-  thanks:{m:'СПАСИБО, ЧТО ВЁЛ ЕГО.',f:'СПАСИБО, ЧТО ВЁЛ ЕЁ.',p:'СПАСИБО, ЧТО ВЁЛ ИХ.'}},
+  thanks:{m:'СПАСИБО, ЧТО ВЁЛ ЕГО.',p:'СПАСИБО, ЧТО ВЁЛ ИХ.'}},
  en:{open:'The door opened.', noceil:'Behind it there was no ceiling.',
   saw:{m:'For the first time Bobby saw a light that did not follow a cursor.',
        f:'For the first time Gaika saw a light that did not follow a cursor.',
@@ -2661,8 +2747,7 @@ const END_TX={
   alone:{m:'He just does not need you to walk anymore.',
          f:'She just does not need you to walk anymore.',
          p:'They just do not need you to walk anymore.'},
-  thanks:{m:'THANK YOU FOR LEADING HIM.',f:'THANK YOU FOR LEADING HER.',
-          p:'THANK YOU FOR LEADING THEM.'}}};
+  thanks:{m:'THANK YOU FOR LEADING HIM.',p:'THANK YOU FOR LEADING THEM.'}}};
 // кто именно дошёл до солнца: один робот или оба игрока
 function endCast(){
   const me={ri:rbI(),si:skI()};
@@ -2672,8 +2757,12 @@ function endCast(){
 let END=[];
 function endBuild(){
   const c=endCast(), X=END_TX[LANG==='en'?'en':'ru'];
-  const g=c.co?'p':((ROBOTS[c.who[0].ri]||ROBOTS[0]).g||'m');
-  END=[X.open,X.noceil,X.saw[g],X.turn[g],X.unseen,X.here,X.alone[g],'',X.thanks[g]];
+  // Робот мужского рода независимо от имени — женские формы убраны.
+  const g=c.co?'p':'m';
+  const nm=tr((ROBOTS[c.who[0].ri]||ROBOTS[0]).name);
+  const nice=nm.charAt(0)+nm.slice(1).toLowerCase();     // БОББИ -> Бобби
+  END=[X.open,X.noceil,X.saw[g].replace('{N}',nice),X.turn[g],X.unseen,X.here,
+       X.alone[g],'',X.thanks[g]];
   endLang=LANG;
   return c;
 }
@@ -2902,22 +2991,38 @@ function drawEnding(){
     ctx.lineTo(dX+dW+96,yG+42); ctx.lineTo(dX-60,yG+42); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
-  if(shut>0.004){                                // сама створка: горизонтальные ламели
-    ctx.fillStyle=eMix('#0b0810','#2c1f2b',sunUp*0.7);
-    ctx.fillRect(dX,dTop,dW,openY-dTop);
-    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1;
-    for(let y=dTop+6;y<openY-1.5;y+=7){
-      ctx.beginPath(); ctx.moveTo(dX+1,y); ctx.lineTo(dX+dW-1,y); ctx.stroke(); }
-    ctx.strokeStyle='rgba(255,255,255,.07)';
-    for(let y=dTop+6;y<openY-1.5;y+=7){
-      ctx.beginPath(); ctx.moveTo(dX+1,y+1.4); ctx.lineTo(dX+dW-1,y+1.4); ctx.stroke(); }
-    if(doorOpen>0.004){                          // светящаяся щель под кромкой
-      ctx.fillStyle='rgba(255,242,206,'+(0.55+0.35*Math.sin(T*11))+')';
-      ctx.fillRect(dX,openY-2.5,dW,2.5);
+  if(shut>0.004){                                // две створки разъезжаются в стороны
+    const half=dW/2, off=doorOpen*half;
+    ctx.save(); ctx.beginPath(); ctx.rect(dX,dTop,dW,dH); ctx.clip();
+    for(const sd of [-1,1]){
+      const lx=sd<0?dX-off:dX+half+off;
+      const lg3=ctx.createLinearGradient(lx,0,lx+half,0);
+      lg3.addColorStop(0,eMix('#1a141f','#4a3442',sunUp*0.8));
+      lg3.addColorStop(0.55,eMix('#100b14','#33222e',sunUp*0.8));
+      lg3.addColorStop(1,eMix('#1d1622','#523a48',sunUp*0.8));
+      ctx.fillStyle=lg3; ctx.fillRect(lx,dTop,half,dH);
+      ctx.fillStyle='rgba(0,0,0,.34)';                    // накладка
+      ctx.fillRect(lx+3,dTop+8,half-6,dH*0.34);
+      ctx.fillStyle='rgba(255,255,255,.07)';
+      ctx.fillRect(lx+3,dTop+8,half-6,1.2);
+      ctx.fillStyle='rgba(255,240,208,'+(0.10+0.26*sunUp)+')';   // заклёпки
+      for(let i=0;i<3;i++){ const ry=dTop+10+i*(dH-22)/2;
+        ctx.beginPath(); ctx.arc(lx+3,ry,.9,0,7); ctx.fill();
+        ctx.beginPath(); ctx.arc(lx+half-3,ry,.9,0,7); ctx.fill(); }
+      ctx.strokeStyle='rgba(210,220,235,'+(0.30+0.3*sunUp)+')'; ctx.lineWidth=1.5;
+      ctx.lineCap='round';                                 // ручка
+      const hx=sd<0?lx+half-6:lx+6;
+      ctx.beginPath(); ctx.moveTo(hx,dTop+dH*0.5); ctx.lineTo(hx,dTop+dH*0.5+9); ctx.stroke();
+    }
+    ctx.restore();
+    if(doorOpen>0.004){                          // светящаяся щель между створками
+      ctx.fillStyle='rgba(255,242,206,'+((0.55+0.35*Math.sin(T*11))*(1-doorOpen*0.7))+')';
+      ctx.fillRect(dX+half-1.4-off,dTop,2.8,dH);
       ctx.save(); ctx.globalCompositeOperation='lighter';
-      const seam=ctx.createRadialGradient(dX+dW/2,openY,0,dX+dW/2,openY,74);
-      seam.addColorStop(0,'rgba(255,230,180,.34)'); seam.addColorStop(1,'rgba(255,200,140,0)');
-      ctx.fillStyle=seam; ctx.fillRect(dX-80,openY-80,dW+160,160); ctx.restore();
+      const seam=ctx.createRadialGradient(dX+half,dTop+dH*0.55,0,dX+half,dTop+dH*0.55,86);
+      seam.addColorStop(0,'rgba(255,230,180,'+(0.30*doorOpen)+')');
+      seam.addColorStop(1,'rgba(255,200,140,0)');
+      ctx.fillStyle=seam; ctx.fillRect(dX-90,dTop-60,dW+180,dH+120); ctx.restore();
     }
   }
   ctx.save(); ctx.globalCompositeOperation='lighter';        // общий свет из проёма
@@ -3411,9 +3516,11 @@ $('coInput').addEventListener('keydown',e=>{ if(e.key==='Enter') coJoin(); });
 
 // ───────── главный цикл ─────────
 let last=performance.now();
+let DT=1/60;
 function frame(now){
   let dt=(now-last)/1000; last=now;
   dt=Math.min(dt,1/30);
+  DT=dt;
   if(state!=='paused'||!$('skins').classList.contains('hidden')||!$('coPick').classList.contains('hidden')) time+=dt;
   if(isTouch) updateStick(dt);
   mouse.x=mouse.sx+cam.x; mouse.y=mouse.sy;
