@@ -2231,226 +2231,142 @@ function drawExit(){
   ctx.restore();
 }
 function drawCheck(c){
-  // Чекпоинт — это тот, кто не дошёл. Робот сидит у стены, погасший, в пыли.
-  // Бобби задевает его — глаз загорается, голова поднимается, грудная створка
-  // раскрывается, и он отдаёт свой последний свет. Дальше сидит и смотрит,
-  // как чужой свет уходит наверх.
+  // Чекпоинт — не предмет, а столб света. Под перекрытием висит мёртвая
+  // цеховая лампа; Бобби её задевает — и вниз обрушивается луч, который
+  // стоит до конца уровня. В тёмной игре это читается через весь экран.
   const on=c.on, dtc=Math.min(0.05,DT||1/60);
   const age=on?(time-(c.t0||0)):0;
   const ss2=t=>t*t*(3-2*t);
-  const ember=on?clamp(age/0.25,0,1):0;                      // уголёк в груди разгорается
-  const fl=on?(clamp((age-0.22)/0.05,0,1)*clamp(1-(age-0.28)/0.9,0,1)):0;   // глаз вспыхнул
-  const fl2=fl*fl;
-  const lift=on?ss2(clamp((age-0.25)/0.55,0,1)):0;           // голова поднимается
-  const hatch=on?ss2(clamp((age-0.38)/0.5,0,1)):0;           // створка груди
-  const palm=on?ss2(clamp((age-0.55)/0.7,0,1)):0;            // ладонь раскрывается
   const X=c.x, B=c.y;
-  const lt=litAt(X,B-22,340);
-  const mb=Math.round(40+lt.k*54);
-  const M=(k)=>'rgb('+Math.round(mb*k)+','+Math.round((mb+5)*k)+','+Math.round((mb+11)*k)+')';
-  const RUST='rgba(104,64,40,';
-  const col=[142,255,186];
-  // Голова следит за светом игрока — он смотрит на то, до чего не дошёл.
-  const mdx=mouse.x-X, mdy=mouse.y-(B-30), mdist=Math.hypot(mdx,mdy);
-  const nearK=clamp(1-mdist/210,0,1);
-  if(!isFinite(c.ya)) c.ya=0; if(!isFinite(c.yv)) c.yv=0;
-  const toHero=on?clamp(1-Math.abs(age-0.95)/0.55,0,1):0;    // сначала он смотрит на Бобби
-  const hdx=hero.x-X;
-  const tYaw=(clamp(mdx/170,-1,1)*(1-toHero)+clamp(hdx/170,-1,1)*toHero)*lift;
-  c.yv+=((tYaw-c.ya)*40-c.yv*8)*dtc; c.ya+=c.yv*dtc;
-  const yaw=clamp(c.ya,-1.2,1.2);
-  // Глаз не включается разом: он срывается несколько раз, прежде чем удержаться.
-  let boot=1;
-  if(on&&age<0.62){
-    const seq=[[0.22,0.26],[0.30,0.335],[0.38,0.50],[0.54,9]];
-    boot=0; for(const [s0,s1] of seq) if(age>=s0&&age<s1) boot=1;
-    if(age>=0.38&&age<0.50) boot=0.55+0.45*Math.sin(age*90);
+  // Лампу вешаем под ближайшее перекрытие над чекпоинтом, чтобы луч не
+  // пробивал плиту насквозь.
+  if(!isFinite(c.ly)){
+    let top=B-168;
+    for(const p of L.plats){ if(p===undefined) continue;
+      const bot=p.y+p.h;
+      if(bot<=B-46&&p.x<X+20&&p.x+p.w>X-20) top=Math.max(top,bot+5); }
+    c.ly=clamp(top,34,B-58);
   }
-  const flick=on?((0.86+0.14*Math.sin(time*7.7+X)+0.06*Math.sin(time*19.3))*boot):1;
-  const glow=on?((0.35+0.65*hatch)*(0.85+0.15*Math.sin(time*1.9))*flick*(1+0.22*nearK)):0;
+  if(!isFinite(c.sw)) c.sw=0; if(!isFinite(c.swv)) c.swv=0;
+  const LY=c.ly, H=B-LY;
+  const fire=on?clamp(age/0.20,0,1):0;                       // нить накала краснеет
+  const fl=on?(clamp((age-0.18)/0.04,0,1)*clamp(1-(age-0.24)/0.8,0,1)):0;  // хлопок пуска
+  const fl2=fl*fl;
+  const drop=on?ss2(clamp((age-0.20)/0.13,0,1)):0;           // луч падает почти мгновенно
+  const live=on?clamp((age-0.30)/0.7,0,1):0;
+  if(on&&!c.kick&&age>=0.19){ c.kick=1; c.swv=-2.4; }        // лампу качнуло отдачей
+  c.swv+=(-c.sw*11-c.swv*1.35)*dtc; c.sw+=c.swv*dtc;
+  const sway=c.sw*0.13+Math.sin(time*0.85+X*0.05)*(on?0.017:0.010);
+  const lt=litAt(X,LY,300), mb=Math.round(40+lt.k*52);
+  const M=k=>'rgb('+Math.round(mb*k)+','+Math.round((mb+4)*k)+','+Math.round((mb+10)*k)+')';
+  const breath=on?(0.88+0.12*Math.sin(time*1.35)+0.035*Math.sin(time*7.3)):0;
+  const power=drop*breath;
+  const TOPW=7, BOTW=26+10*live;                             // ширина луча вверху и внизу
+  const LX=X+Math.sin(sway)*H*0.16;                          // низ луча едет за качанием лампы
   ctx.save();
-  if(on&&hatch>0.02){                                        // свет из груди ложится на пол
+  if(!on){                                                   // пока молчит — только выжженный круг
+    ctx.strokeStyle='rgba(46,40,34,.55)'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.ellipse(X,B-1,15,4,0,0,7); ctx.stroke();
+    ctx.fillStyle='rgba(30,26,22,.34)';
+    ctx.beginPath(); ctx.ellipse(X,B-1,12,3,0,0,7); ctx.fill();
+    ctx.fillStyle='rgba(70,62,52,.30)';
+    for(let k=0;k<7;k++){ const a2=k/7*Math.PI*2+1.1;
+      ctx.beginPath(); ctx.arc(X+Math.cos(a2)*(7+ (k%3)*3),B-1+Math.sin(a2)*2.2,0.9,0,7); ctx.fill(); }
+  }
+  if(power>0.002){
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    const pg=ctx.createRadialGradient(X+2,B-1,0,X+2,B-1,40*hatch);
-    pg.addColorStop(0,'rgba(150,255,190,'+(0.15*hatch*flick)+')');
-    pg.addColorStop(1,'rgba(150,255,190,0)');
-    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(X+2,B-1,40*hatch,10*hatch,0,0,7); ctx.fill();
-    const bdir=1+yaw*0.9;                                    // луч идёт туда, куда он смотрит
-    const beam=ctx.createLinearGradient(0,B-15,0,B+4);
-    beam.addColorStop(0,'rgba(160,255,200,'+(0.15*hatch)+')');
-    beam.addColorStop(1,'rgba(140,240,180,0)');
-    ctx.fillStyle=beam; ctx.beginPath();
-    ctx.moveTo(X-1+bdir*6,B-16); ctx.lineTo(X-1+bdir*10,B-14);
-    ctx.lineTo(X-1+bdir*33,B+2); ctx.lineTo(X-1+bdir*3,B+2); ctx.closePath(); ctx.fill();
-    for(let k=0;k<5;k++){                                    // пылинки пляшут в луче
-      const t4=((time*0.34+k*0.2)%1);
-      const bx2=X-1+bdir*(5+t4*26)+Math.sin(time*1.7+k*2)*1.6;
-      ctx.fillStyle='rgba(206,255,228,'+(0.26*hatch*(1-t4))+')';
-      ctx.beginPath(); ctx.arc(bx2,B-15+t4*15,0.7,0,7); ctx.fill();
+    const bg=ctx.createLinearGradient(0,LY,0,B);             // тело луча
+    bg.addColorStop(0,'rgba(198,255,224,'+(0.26*power)+')');
+    bg.addColorStop(0.45,'rgba(150,250,196,'+(0.15*power)+')');
+    bg.addColorStop(1,'rgba(126,240,178,'+(0.07*power)+')');
+    ctx.fillStyle=bg; ctx.beginPath();
+    ctx.moveTo(X-TOPW,LY); ctx.lineTo(X+TOPW,LY);
+    ctx.lineTo(LX+BOTW,B); ctx.lineTo(LX-BOTW,B); ctx.closePath(); ctx.fill();
+    const cg=ctx.createLinearGradient(0,LY,0,B);             // яркое ядро
+    cg.addColorStop(0,'rgba(236,255,244,'+(0.34*power)+')');
+    cg.addColorStop(1,'rgba(190,255,220,'+(0.05*power)+')');
+    ctx.fillStyle=cg; ctx.beginPath();
+    ctx.moveTo(X-TOPW*0.42,LY); ctx.lineTo(X+TOPW*0.42,LY);
+    ctx.lineTo(LX+BOTW*0.34,B); ctx.lineTo(LX-BOTW*0.34,B); ctx.closePath(); ctx.fill();
+    for(let k=0;k<3;k++){                                    // прожилки внутри луча
+      const ph=time*0.11+k*0.37, u=(ph%1)*2-1;
+      const rg=ctx.createLinearGradient(0,LY,0,B);
+      rg.addColorStop(0,'rgba(226,255,240,'+(0.10*power)+')');
+      rg.addColorStop(1,'rgba(180,255,214,0)');
+      ctx.fillStyle=rg; ctx.beginPath();
+      ctx.moveTo(X+u*TOPW*0.55-0.9,LY); ctx.lineTo(X+u*TOPW*0.55+0.9,LY);
+      ctx.lineTo(LX+u*BOTW*0.7+3.4,B); ctx.lineTo(LX+u*BOTW*0.7-3.4,B); ctx.closePath(); ctx.fill();
     }
+    const fd=ctx.createRadialGradient(LX,B-1,0,LX,B-1,BOTW*1.5);   // пятно на полу
+    fd.addColorStop(0,'rgba(236,255,246,'+(0.34*power)+')');
+    fd.addColorStop(0.4,'rgba(160,255,204,'+(0.16*power)+')');
+    fd.addColorStop(1,'rgba(126,240,178,0)');
+    ctx.fillStyle=fd; ctx.beginPath(); ctx.ellipse(LX,B-1,BOTW*1.5,BOTW*0.44,0,0,7); ctx.fill();
+    ctx.fillStyle='rgba(244,255,250,'+(0.30*power)+')';
+    ctx.beginPath(); ctx.ellipse(LX,B-1.4,BOTW*0.42,BOTW*0.13,0,0,7); ctx.fill();
     ctx.restore();
+    for(let k=0;k<11;k++){                                   // пыль оседает в луче
+      const sp=0.10+((k*37)%13)/58, t2=((time*sp+k*0.19)%1);
+      const dy=LY+t2*H, u2=((k*53)%100)/50-1;
+      const wid=TOPW+(BOTW-TOPW)*t2;
+      const dx=X+u2*wid*0.86+(LX-X)*t2+Math.sin(time*0.7+k*1.7)*1.8;
+      const al=0.30*power*Math.sin(t2*Math.PI);
+      ctx.fillStyle='rgba(226,255,240,'+al+')';
+      ctx.beginPath(); ctx.arc(dx,dy,0.55+0.5*((k%3)/2),0,7); ctx.fill();
+    }
   }
-  ctx.fillStyle='rgba(0,0,0,.36)';
-  ctx.beginPath(); ctx.ellipse(X+1,B-1,15,3.2,0,0,7); ctx.fill();
-  ctx.fillStyle=M(0.62);                                     // обломки, на которые он осел
-  ctx.beginPath(); ctx.moveTo(X-17,B); ctx.lineTo(X-15,B-9);
-  ctx.lineTo(X-7,B-11); ctx.lineTo(X-5,B); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(X-15,B-9,8,1);
-  ctx.fillStyle=M(0.5);
-  ctx.beginPath(); ctx.moveTo(X+12,B); ctx.lineTo(X+14,B-5); ctx.lineTo(X+19,B); ctx.closePath(); ctx.fill();
-  // ── ноги: одна подтянута, другая вытянута ──
-  ctx.fillStyle=M(0.86);
-  rr(ctx,X+2,B-9,17,6,2.5); ctx.fill();                      // вытянутая голень
-  ctx.fillStyle=M(0.70); rr(ctx,X+16,B-10,5,8,2); ctx.fill();// ступня
-  ctx.fillStyle=M(0.94);
-  ctx.beginPath(); ctx.moveTo(X-6,B-6);                      // подтянутое колено
-  ctx.quadraticCurveTo(X-2,B-22,X+4,B-19);
-  ctx.quadraticCurveTo(X+6,B-12,X+2,B-5); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.30)'; rr(ctx,X-4,B-19,7,3,1.5); ctx.fill();
-  ctx.fillStyle=RUST+(0.22+0.10*lt.k)+')';                   // ржавчина понизу
-  ctx.fillRect(X+3,B-6,13,3); ctx.fillRect(X-5,B-8,4,5);
-  // ── корпус: сидит, откинувшись назад ──
-  ctx.save(); ctx.translate(X-3,B-8); ctx.rotate(-0.16+0.03*lift);
-  const bg2=ctx.createLinearGradient(-10,0,10,0);
-  bg2.addColorStop(0,M(0.66)); bg2.addColorStop(0.42,M(1.16)); bg2.addColorStop(1,M(0.74));
-  ctx.fillStyle=bg2; rr(ctx,-9,-19,19,20,4); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(-9,-19,19,1.2);
-  ctx.fillStyle=RUST+'0.26)';                                // потёки по корпусу
-  ctx.fillRect(-7,-9,2.4,9); ctx.fillRect(3,-13,1.8,6);
-  ctx.fillStyle='rgba(0,0,0,.34)';                           // рёбра корпуса
-  ctx.fillRect(-8,-6,17,1.6); ctx.fillRect(-8,-3,17,1.4);
-  ctx.fillStyle='rgba(0,0,0,.40)'; rr(ctx,-7,-2.2,7,3.4,0.8); ctx.fill();   // шильдик
-  ctx.fillStyle='rgba(198,206,218,'+(0.16+0.20*lt.k)+')';
-  for(let k=0;k<3;k++) ctx.fillRect(-6.2+k*2,-1.2,1.2,1.4);
-  ctx.strokeStyle='rgba(206,212,222,.13)'; ctx.lineWidth=.6;  // царапины
-  ctx.beginPath(); ctx.moveTo(-6,-14); ctx.lineTo(-2,-11.4);
-  ctx.moveTo(4,-8); ctx.lineTo(7,-10.2); ctx.stroke();
-  // грудная створка: две половинки разъезжаются
-  const HW=6.4, hx0=-4.4, hy0=-16.6, HH=10.5;
-  ctx.fillStyle='#070c0a'; rr(ctx,hx0,hy0,HW*1.5,HH,1.6); ctx.fill();
+  ctx.save(); ctx.translate(X,LY-30); ctx.rotate(sway);      // подвес и лампа
+  ctx.strokeStyle='rgba(14,16,22,.9)'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(0,0); ctx.stroke();
+  ctx.strokeStyle='rgba(190,198,214,.10)'; ctx.lineWidth=.7;
+  ctx.beginPath(); ctx.moveTo(-0.5,-16); ctx.lineTo(-0.5,0); ctx.stroke();
+  ctx.fillStyle=M(0.8); rr(ctx,-3,-1,6,5,1.4); ctx.fill();   // патрон
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(-3,2.4,6,1.2);
+  const sg=ctx.createLinearGradient(-12,0,12,0);             // конический плафон
+  sg.addColorStop(0,M(0.62)); sg.addColorStop(0.36,M(1.18)); sg.addColorStop(1,M(0.70));
+  ctx.fillStyle=sg;
+  ctx.beginPath(); ctx.moveTo(-4.5,4); ctx.lineTo(4.5,4);
+  ctx.lineTo(12,15); ctx.lineTo(-12,15); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  ctx.beginPath(); ctx.moveTo(-4.5,4); ctx.lineTo(-2.5,4); ctx.lineTo(-9.5,15); ctx.lineTo(-12,15); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(104,64,40,.24)'; ctx.fillRect(5,8,2.2,7);
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(-12,14.4,24,1.6);   // кромка плафона
+  ctx.fillStyle=on?('rgba(236,255,244,'+(0.35+0.65*power)+')')      // лампа внутри
+                 :('rgba(150,120,96,'+(0.22+0.10*lt.k)+')');
+  ctx.beginPath(); ctx.ellipse(0,13.6,5.4,2.4,0,0,7); ctx.fill();
+  if(!on){                                                         // дежурный огонёк: лампу видно в темноте
+    const pil=0.45+0.55*Math.abs(Math.sin(time*0.8)*Math.sin(time*1.9));
+    ctx.fillStyle='rgba(255,96,74,'+(0.5+0.4*pil)+')';
+    ctx.beginPath(); ctx.arc(9.5,10.5,1.3,0,7); ctx.fill();
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const pg3=ctx.createRadialGradient(9.5,10.5,0,9.5,10.5,14);
+    pg3.addColorStop(0,'rgba(255,96,74,'+(0.26*pil)+')'); pg3.addColorStop(1,'rgba(255,80,60,0)');
+    ctx.fillStyle=pg3; ctx.fillRect(-6,-4,32,30); ctx.restore();
+  }
+  if(on&&fire>0.02&&drop<0.5){                               // нить накала успевает покраснеть
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    ctx.fillStyle='rgba(255,150,80,'+(0.55*fire*(1-drop))+')';
+    ctx.beginPath(); ctx.ellipse(0,13.6,3.4,1.6,0,0,7); ctx.fill(); ctx.restore();
+  }
   if(on){
-    ctx.save(); ctx.beginPath(); ctx.rect(hx0,hy0,HW*1.5,HH); ctx.clip();
-    const ig2=ctx.createLinearGradient(0,hy0,0,hy0+HH);      // нутро светится
-    ig2.addColorStop(0,'rgba(206,255,228,'+(0.30+0.62*glow)+')');
-    ig2.addColorStop(1,'rgba(120,230,170,'+(0.18+0.44*glow)+')');
-    ctx.fillStyle=ig2; ctx.fillRect(hx0,hy0,HW*1.5,HH);
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    const cr=ctx.createRadialGradient(hx0+HW*0.75,hy0+HH*0.5,0,hx0+HW*0.75,hy0+HH*0.5,13);
-    cr.addColorStop(0,'rgba(244,255,248,'+(0.44*glow+0.5*fl2)+')');
-    cr.addColorStop(1,'rgba(150,255,190,0)');
-    ctx.fillStyle=cr; ctx.fillRect(hx0-6,hy0-6,HW*1.5+12,HH+12); ctx.restore();
-    ctx.restore();
-  }
-  for(const sd of [0,1]){                                    // сами створки
-    const w2=HW*0.75, lx=hx0+(sd?w2:0)+(sd?1:-1)*hatch*(w2+1.2);
-    ctx.fillStyle=M(sd?0.92:1.04); rr(ctx,lx,hy0,w2,HH,1.4); ctx.fill();
-    ctx.fillStyle='rgba(0,0,0,.34)'; ctx.fillRect(lx+0.6,hy0+1,w2-1.2,1.2);
-    ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(lx+0.6,hy0+2.2,w2-1.2,.6);
-    ctx.fillStyle='rgba(255,255,255,.12)';
-    ctx.beginPath(); ctx.arc(sd?lx+w2-1.4:lx+1.4,hy0+HH-2,.8,0,7); ctx.fill();
-  }
-  if(on&&ember>0.02&&hatch<0.2){                             // уголёк тлеет в щели до раскрытия
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    ctx.fillStyle='rgba(255,150,90,'+(0.55*ember)+')';
-    ctx.fillRect(hx0+HW*0.75-0.7,hy0+1.5,1.4,HH-3);
-    const eg2=ctx.createRadialGradient(hx0+HW*0.75,hy0+HH/2,0,hx0+HW*0.75,hy0+HH/2,11);
-    eg2.addColorStop(0,'rgba(255,150,90,'+(0.30*ember)+')'); eg2.addColorStop(1,'rgba(255,120,60,0)');
-    ctx.fillStyle=eg2; ctx.fillRect(hx0-10,hy0-6,HW*1.5+20,HH+12); ctx.restore();
-  }
-  // ── рука на земле: ладонь раскрывается ──
-  ctx.restore();
-  const reach=on?ss2(clamp((age-0.95)/1.1,0,1)):0;           // тянет ладонь к свету
-  const hxp=X-15+reach*(3+yaw*2), hyp=B-3.5-reach*7;
-  ctx.strokeStyle=M(0.88); ctx.lineWidth=3.2; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(X-9,B-20);
-  ctx.quadraticCurveTo(X-17+reach*2,B-14-reach*4,hxp,hyp); ctx.stroke();
-  ctx.fillStyle=M(1.0); ctx.beginPath(); ctx.arc(hxp,hyp,2.6,0,7); ctx.fill();
-  ctx.strokeStyle=M(1.06); ctx.lineWidth=1.3;
-  for(let k=0;k<3;k++){ const a2=-2.6+k*0.62-palm*0.55-reach*0.35;   // пальцы разжимаются
-    ctx.beginPath(); ctx.moveTo(hxp,hyp);
-    ctx.lineTo(hxp+Math.cos(a2)*(3.4+palm*1.6),hyp+Math.sin(a2)*(3.4+palm*1.6)); ctx.stroke(); }
-  // вторая рука — на подтянутом колене
-  ctx.strokeStyle=M(0.80); ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(X+2,B-20);
-  ctx.quadraticCurveTo(X+7,B-17,X+3,B-19); ctx.stroke();
-  // ── голова: висела на груди, поднимается и смотрит на свет ──
-  ctx.save();
-  ctx.translate(X-4,B-25);
-  ctx.rotate(0.62-0.62*lift+yaw*0.16);
-  const hs=1-0.16*Math.abs(yaw);
-  ctx.scale(hs,1);
-  ctx.fillStyle=M(0.55); rr(ctx,-3.2,1,6.4,4,1.4); ctx.fill();   // шея
-  const hg=ctx.createLinearGradient(-8,0,8,0);
-  hg.addColorStop(0,M(0.70)); hg.addColorStop(0.40,M(1.20)); hg.addColorStop(1,M(0.78));
-  ctx.fillStyle=hg; rr(ctx,-8,-9,16,11,3.4); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.09)'; ctx.fillRect(-8,-9,16,1.2);
-  ctx.fillStyle=RUST+'0.24)'; ctx.fillRect(-6.5,-4,2,5);
-  ctx.fillStyle='#0a0f0d'; rr(ctx,-6,-7,12,7,2); ctx.fill();     // тёмная лицевая
-  ctx.strokeStyle='rgba(190,196,206,.30)'; ctx.lineWidth=.8;     // трещина по лицу
-  ctx.beginPath(); ctx.moveTo(-4.5,-7); ctx.lineTo(-2.6,-4.2); ctx.lineTo(-3.8,-2.4); ctx.stroke();
-  const ex=1.6+yaw*1.4;                                          // единственный глаз
-  if(on){
-    ctx.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(0.55+0.45*flick)+')';
-    ctx.beginPath(); ctx.arc(ex,-3.6,1.9,0,7); ctx.fill();
-    ctx.fillStyle='rgba(240,255,246,'+(0.5+0.5*flick)+')';
-    ctx.beginPath(); ctx.arc(ex-0.5,-4.1,0.8,0,7); ctx.fill();
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    const eg=ctx.createRadialGradient(ex,-3.6,0,ex,-3.6,9+14*fl2);
-    eg.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.30*flick+0.55*fl2)+')');
-    eg.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
-    ctx.fillStyle=eg; ctx.fillRect(ex-26,-30,52,52); ctx.restore();
-  } else {
-    ctx.fillStyle='rgba(58,62,66,.9)';
-    ctx.beginPath(); ctx.arc(ex,-3.6,1.9,0,7); ctx.fill();
-    ctx.strokeStyle='rgba(120,126,134,.35)'; ctx.lineWidth=.7;    // треснувшая линза
-    ctx.beginPath(); ctx.moveTo(ex-1.6,-4.6); ctx.lineTo(ex+1.4,-2.8); ctx.stroke();
-  }
-  ctx.strokeStyle=M(0.78); ctx.lineWidth=1.5; ctx.lineCap='round';  // сломанная антенна
-  ctx.beginPath(); ctx.moveTo(-2,-9); ctx.lineTo(-3.4,-14);
-  ctx.lineTo(-6.6,-15.4); ctx.stroke();
-  if(!on){ ctx.strokeStyle='rgba(206,210,216,.13)'; ctx.lineWidth=.6;   // паутинка на голове
-    ctx.beginPath(); ctx.moveTo(-8,-9); ctx.lineTo(-3,-13); ctx.lineTo(2,-9); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-6,-10.6); ctx.lineTo(-1,-10.6); ctx.stroke(); }
-  ctx.restore();
-  if(on&&hatch>0.2){                                          // угольки поднимаются из груди
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    for(let k=0;k<4;k++){ const t2=(time*0.32+k*0.25)%1;
-      ctx.fillStyle='rgba(206,255,228,'+(0.32*hatch*(1-t2))+')';
-      ctx.beginPath(); ctx.arc(X-2+Math.sin(time*1.3+k*2)*(2+t2*6),B-20-t2*26,0.8,0,7); ctx.fill(); }
-    ctx.restore();
-  }
-  if(on&&hatch>0.15){                                        // контровой свет по силуэту
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    ctx.strokeStyle='rgba(170,255,206,'+(0.20*hatch*flick)+')'; ctx.lineWidth=1.2;
-    ctx.beginPath(); ctx.moveTo(X-6,B-6);
-    ctx.quadraticCurveTo(X-2,B-22,X+4,B-19); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(X+2,B-9); ctx.lineTo(X+17,B-9); ctx.stroke();
-    ctx.restore();
-  }
-  ctx.save(); ctx.globalCompositeOperation='lighter';         // общее свечение
-  const g3=ctx.createRadialGradient(X-1,B-18,0,X-1,B-18,(on?34*hatch+16:14)+fl2*54);
-  g3.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.17*hatch*flick+0.04:0.05)+0.45*fl2)+')');
-  g3.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
-  ctx.fillStyle=g3; ctx.fillRect(X-110,B-128,220,220);
-  if(fl>0.001){                                              // волна в момент, когда глаз зажёгся
-    const r0=6+(1-fl)*40;
-    ctx.strokeStyle='rgba(236,255,244,'+(0.45*fl2)+')'; ctx.lineWidth=1.1+2.2*fl;
-    ctx.beginPath(); ctx.arc(X-4,B-25,r0,0,7); ctx.stroke();
-    const r1=10+(1-fl)*48;
-    ctx.strokeStyle='rgba(180,255,210,'+(0.28*fl2)+')'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.ellipse(X+1,B-1,r1,r1*0.26,0,0,7); ctx.stroke();
+    const lg=ctx.createRadialGradient(0,14,0,0,14,26+34*fl2);
+    lg.addColorStop(0,'rgba(226,255,240,'+(0.30*power+0.6*fl2)+')');
+    lg.addColorStop(1,'rgba(150,255,196,0)');
+    ctx.fillStyle=lg; ctx.fillRect(-60,-20,120,80); ctx.restore();
   }
   ctx.restore();
-  if(on&&age>0.24&&age<0.7&&Math.random()<0.6){              // пыль слетает с плеч, когда поднял голову
-    parts.push({x:X-8+Math.random()*16,y:B-24+Math.random()*4,
-      vx:(Math.random()*2-1)*14,vy:6+Math.random()*22,
-      life:.5+Math.random()*.4,r:.7+Math.random()*.9,c:'#8a7a66',g:500});
+  if(fl>0.001){                                              // ударная волна по полу от пуска
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const r1=10+(1-fl)*70;
+    ctx.strokeStyle='rgba(226,255,244,'+(0.42*fl2)+')'; ctx.lineWidth=1.2+2.6*fl;
+    ctx.beginPath(); ctx.ellipse(X,B-1,r1,r1*0.26,0,0,7); ctx.stroke();
+    ctx.restore();
   }
-  if(on&&age<0.18&&Math.random()<0.7){                       // искры из груди в момент пуска
-    const a3=-1.57+(Math.random()*2-1)*1.1;
-    parts.push({x:X-1,y:B-16,
-      vx:Math.cos(a3)*(40+Math.random()*90),vy:Math.sin(a3)*(50+Math.random()*100),
-      life:.4+Math.random()*.4,r:.7+Math.random()*1,c:'#ffc07a',g:460});
+  if(on&&age<0.34&&Math.random()<0.6){                       // с перекрытия сыплется труха
+    parts.push({x:X-9+Math.random()*18,y:LY-12,
+      vx:(Math.random()*2-1)*12,vy:20+Math.random()*40,
+      life:.5+Math.random()*.4,r:.7+Math.random()*.9,c:'#8a7a66',g:520});
   }
   ctx.restore();
 }
@@ -2923,7 +2839,14 @@ function drawDarkness(){
   }
   for(const s of L.spiders) hole(s.x-cam.x,s.y-4,26,.4);
   for(const b of bfs) hole(b.x-cam.x,b.y,52,.8);
-  for(const c of L.checks) hole(c.x-cam.x,c.y-34,c.on?46:22,c.on?.7:.4);
+  for(const c of L.checks){                              // столб света прорезаем на всю высоту
+    const ly=isFinite(c.ly)?c.ly:c.y-120;
+    if(c.on){ const n=Math.max(3,Math.round((c.y-ly)/22));
+      for(let k=0;k<=n;k++){ const t=k/n;
+        hole(c.x-cam.x,ly+(c.y-ly)*t,13+30*t,0.30+0.42*t); }
+      hole(c.x-cam.x,ly+14,26,.5);
+    } else { hole(c.x-cam.x,c.y-8,22,.34); hole(c.x-cam.x,ly-14,20,.34); }
+  }
   if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
   if(L.door){ hole(L.door.box.x-cam.x,L.door.y-40,44,.72);
     hole(L.door.x-cam.x,L.door.y-52,52,.6); }
@@ -2981,7 +2904,13 @@ function drawGlows(){
   for(const b of bfs){ const f=Math.abs(Math.sin(b.t*11));
     glow(b.x,b.y,52+9*(1-f),'rgba(150,225,255,%A%)',.40+.17*(1-f)); }
   for(const s of L.spiders) glow(s.x,s.y-4,20,'rgba(255,40,40,%A%)',.35*(s.fade===undefined?1:s.fade));
-  for(const c of L.checks) glow(c.x,c.y-34,c.on?52:20,c.on?'rgba(110,255,150,%A%)':'rgba(255,80,80,%A%)',c.on?.28:.22);
+  for(const c of L.checks){
+    const ly=isFinite(c.ly)?c.ly:c.y-120;
+    if(c.on){ glow(c.x,c.y-6,54,'rgba(140,255,190,%A%)',.26);
+              glow(c.x,ly+14,30,'rgba(180,255,215,%A%)',.22); }
+    else { glow(c.x,c.y-6,16,'rgba(255,120,90,%A%)',.08);
+           glow(c.x+9,ly-20,18,'rgba(255,96,74,%A%)',.16); }
+  }
   if(L.note) glow(L.note.x,L.note.y-30,30,'rgba(255,176,86,%A%)',L.note.read?.10:.24);
   if(L.door){
     const ok=L.door.box.fixed;
