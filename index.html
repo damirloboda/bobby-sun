@@ -2171,25 +2171,31 @@ function drawCheck(c){
   const on=c.on, lt=litAt(c.x,c.y-30,340);
   const dtc=Math.min(0.05,DT||1/60);
   const age=on?(time-(c.t0||0)):0;
-  const ign=on?clamp(age/0.55,0,1):0;                      // огонёк разгорается
-  const fl=on?clamp(1-(age-0.30)/0.95,0,1):0;              // вспышка зажигания
+  const vein=on?clamp(age/0.22,0,1):0;                     // свет бежит вверх по столбу
+  const ign=on?clamp((age-0.20)/0.55,0,1):0;               // огонёк разгорается
+  const fl=on?(clamp((age-0.18)/0.05,0,1)*clamp(1-(age-0.24)/0.95,0,1)):0;   // вспышка
   const fl2=fl*fl;
   const X=c.x, B=c.y;
   // маятник: толчок в момент зажигания, дальше затухает сам
   if(c.sw===undefined){ c.sw=0; c.swv=0; }
-  if(on&&!c.kick){ c.kick=1; c.swv=-2.9; }
+  if(on&&!c.kick&&age>=0.20){ c.kick=1; c.swv=-2.9; }
   c.swv+=(-c.sw*13.5-c.swv*1.5)*dtc;
   c.sw+=c.swv*dtc;
   const sway=c.sw*0.20+Math.sin(time*1.15+X*0.07)*(on?0.028:0.014);
   const mb=Math.round(44+lt.k*58);
   const IRON='rgb('+mb+','+(mb+4)+','+(mb+10)+')';
   const col=on?[168,255,196]:[210,96,74];
+  // Пойманный свет тянется к большому свету — к курсору игрока.
+  const mdx=mouse.x-(X-8), mdy=mouse.y-(B-21);
+  const mdist=Math.hypot(mdx,mdy);
+  const lean=clamp(mdx/110,-1,1), leanY=clamp(mdy/110,-1,1);
+  const nearK=clamp(1-mdist/190,0,1);
   const flick=on?(0.86+0.14*Math.sin(time*11.3+X)+0.06*Math.sin(time*27.1)):1;
-  const bri=on?(0.55+0.45*ign*(0.82+0.18*Math.sin(time*3.1))*flick)
-             :(0.24+0.14*Math.abs(Math.sin(time*0.9)*Math.sin(time*2.3)));
+  const bri=on?((0.55+0.45*ign*(0.82+0.18*Math.sin(time*3.1))*flick)*(1+0.26*nearK))
+             :(0.24+0.14*Math.abs(Math.sin(time*0.9)*Math.sin(time*2.3))+0.20*nearK);
   const HX=X-8, HY=B-36;                                   // точка подвеса
   const LT2=8, LB=23, LW=6.2;                              // габариты стекла
-  const lanX=HX+Math.sin(sway)*15, lanY=HY+Math.cos(sway)*15;   // центр фонаря в мире
+  const lanX=HX+Math.sin(sway)*15, lanY=HY+Math.cos(sway)*15+(on?-2.2*ign:0);   // центр фонаря в мире
   ctx.save();
   if(on){                                                  // узор от граней стекла на полу
     ctx.save(); ctx.globalCompositeOperation='lighter';
@@ -2227,7 +2233,21 @@ function drawCheck(c){
   ctx.beginPath(); ctx.moveTo(X,POST+2);
   ctx.quadraticCurveTo(X-1.5,POST-7,X-6.5,POST-8.5); ctx.stroke();
   ctx.beginPath(); ctx.arc(X-8,POST-7.2,2.1,-0.5,3.5); ctx.stroke();
-  ctx.save(); ctx.translate(HX,HY); ctx.rotate(sway);
+  if(on&&vein<1){                                          // заряд бежит вверх по железу
+    const vy=B-2-(B-2-(POST-9))*vein;
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const vg=ctx.createLinearGradient(0,vy+16,0,vy-5);
+    vg.addColorStop(0,'rgba(150,255,190,0)');
+    vg.addColorStop(0.75,'rgba(196,255,218,.55)');
+    vg.addColorStop(1,'rgba(238,255,246,.85)');
+    ctx.fillStyle=vg; ctx.fillRect(X-2.6,vy-5,5.2,21);
+    const vh=ctx.createRadialGradient(X,vy,0,X,vy,13);
+    vh.addColorStop(0,'rgba(190,255,214,.42)'); vh.addColorStop(1,'rgba(150,255,190,0)');
+    ctx.fillStyle=vh; ctx.fillRect(X-14,vy-14,28,28);
+    ctx.restore();
+  }
+  const lift=on?(-2.2*ign+Math.sin(time*1.7+X*0.11)*0.9*ign):0;   // горячий воздух приподнимает
+  ctx.save(); ctx.translate(HX,HY+lift); ctx.rotate(sway);
   ctx.strokeStyle=IRON; ctx.lineWidth=1.4;                 // дужка
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,3.5); ctx.stroke();
   ctx.beginPath(); ctx.arc(0,7,3.4,Math.PI,0); ctx.stroke();
@@ -2243,7 +2263,7 @@ function drawCheck(c){
   ctx.fillStyle=gGrad; ctx.fill();
   // живой огонёк: гуляет восьмёркой, за ним тянется хвостик
   const ow=Math.sin(time*1.9+X)*1.7*ign, oh=Math.sin(time*3.8+X)*0.9*ign;
-  const orbX=ow, orbY=LB-4.5-ign*5.5+oh;
+  const orbX=ow+lean*2.6*(on?ign:0.5), orbY=LB-4.5-ign*5.5+oh+leanY*1.8*(on?ign:0.5);
   if(on&&ign>0.05){
     ctx.save(); ctx.globalCompositeOperation='lighter';
     for(let k=1;k<=4;k++){                                 // хвост огонька
@@ -2302,6 +2322,20 @@ function drawCheck(c){
   ctx.fillStyle=IRON;
   ctx.beginPath(); ctx.moveTo(-LW-1.4,LB); ctx.lineTo(LW+1.4,LB);
   ctx.lineTo(LW-1,LB+2.4); ctx.lineTo(-LW+1,LB+2.4); ctx.closePath(); ctx.fill();
+  if(on&&ign>0.3){                                         // марево над крышкой
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(let k=0;k<3;k++){
+      const wy=LT2-9-k*4.5, amp=1.6+k*0.8;
+      ctx.strokeStyle='rgba(206,255,226,'+(0.10*ign*(1-k*0.28))+')'; ctx.lineWidth=1.1;
+      ctx.beginPath();
+      for(let q2=-6;q2<=6;q2++){
+        const wx=q2*1.1, wo=Math.sin(time*3.1+q2*0.7+k*1.4)*amp*0.5;
+        if(q2===-6) ctx.moveTo(wx,wy+wo); else ctx.lineTo(wx,wy+wo);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   if(on){                                                  // дымок из-под крышки
     ctx.save(); ctx.globalCompositeOperation='lighter';
     for(let i=0;i<4;i++){ const t2=(time*0.42+i*0.25)%1;
