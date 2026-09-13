@@ -3936,7 +3936,11 @@ syncLangMenu();
 // нужный робот и сразу у самой двери. Обычную игру это не трогает.
 const QP=new URLSearchParams(location.search);
 if(QP.has('robot')){ save.robot=clamp(parseInt(QP.get('robot'),10)||0,0,ROBOTS.length-1); }
-if(QP.has('lvl')){
+if(QP.has('end')){                                  // сразу концовка, смотреть ворота
+  startLevel(100); state='ending'; endT=0; endWho=null; endBuild();
+  $('hud').classList.add('hidden'); $('win').classList.add('hidden'); $('hint').classList.add('hidden');
+}
+else if(QP.has('lvl')){
   startLevel(clamp(parseInt(QP.get('lvl'),10)||1,1,100));
   if(QP.has('exit')){
     hero.x=L.exit.x-72; hero.y=L.exit.y+L.exit.h-16; hero.vx=0; hero.vy=0;
