@@ -2026,44 +2026,6 @@ function drawCheck(c){
   ctx.fillRect(X-0.9,TOP-12,1.8,5);
   ctx.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(0.5+0.5*pulse)+')';
   ctx.beginPath(); ctx.arc(X,TOP-12.6,1.5,0,7); ctx.fill();
-  // Парящее кольцо над макушкой — по нему чекпоинт видно издалека.
-  const rotA=time*(on?1.7:0.55), bob=Math.sin(time*(on?2.2:1.1))*(on?1.6:0.7);
-  const RY=TOP-19+bob, RX=9.5, rh=Math.abs(Math.cos(rotA))*3.4+1.1;
-  ctx.save();
-  ctx.lineWidth=on?2.0:1.3;
-  ctx.strokeStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.42:0.20)+(on?0.40:0.16)*pulse)+')';
-  ctx.beginPath(); ctx.ellipse(X,RY,RX,rh,0,0,7); ctx.stroke();
-  ctx.globalCompositeOperation='lighter';
-  ctx.lineWidth=on?4.5:2.4;
-  ctx.strokeStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.16:0.07)*pulse)+')';
-  ctx.beginPath(); ctx.ellipse(X,RY,RX,rh,0,0,7); ctx.stroke();
-  if(on){                                                  // бусина бежит по кольцу
-    const bx2=X+Math.cos(rotA)*RX, by2=RY+Math.sin(rotA)*rh;
-    ctx.fillStyle='rgba(226,255,238,'+(0.55+0.45*pulse)+')';
-    ctx.beginPath(); ctx.arc(bx2,by2,1.5,0,7); ctx.fill();
-  }
-  ctx.restore();
-  if(fl>0.001){                                            // при включении кольцо вспыхивает шире
-    const ex2=RX+(1-fl)*26;
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    ctx.strokeStyle='rgba(200,255,220,'+(0.45*fl*fl)+')'; ctx.lineWidth=1.2+2.4*fl;
-    ctx.beginPath(); ctx.ellipse(X,RY,ex2,Math.max(1,rh+(1-fl)*7),0,0,7); ctx.stroke();
-    ctx.restore();
-  }
-  if(on){                                                  // луч метёт темноту
-    const d=Math.cos(time*1.5), sp=Math.abs(d), dir=d>0?1:-1;
-    if(sp>0.05){
-      ctx.save(); ctx.globalCompositeOperation='lighter';
-      const LY=TOP-3.6, len=42+38*sp, wide=6+14*sp;
-      const bg=ctx.createLinearGradient(X,LY,X+dir*len,LY+12);
-      bg.addColorStop(0,'rgba(126,255,160,'+(0.15*sp*pulse)+')');
-      bg.addColorStop(1,'rgba(126,255,160,0)');
-      ctx.fillStyle=bg; ctx.beginPath();
-      ctx.moveTo(X,LY-3); ctx.lineTo(X,LY+3);
-      ctx.lineTo(X+dir*len,LY+12+wide); ctx.lineTo(X+dir*len,LY+2-wide);
-      ctx.closePath(); ctx.fill(); ctx.restore();
-    }
-  }
   ctx.save(); ctx.globalCompositeOperation='lighter';      // ореол
   const g3=ctx.createRadialGradient(X,TOP-4,0,X,TOP-4,(on?42:22)+fl2*42);
   g3.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+(((on?0.20:0.15)*pulse)+0.40*fl2)+')');
@@ -2085,44 +2047,79 @@ function drawCheck(c){
   ctx.restore(); ctx.restore();
 }
 function drawNote(nt){
-  // Терминал с печатью: из щели торчит распечатка — отсюда и берётся лист.
+  // Напольная консоль: тумба с вентиляцией, ЭЛТ на наклонной панели,
+  // клавиатурная полка, кабель в пол и распечатка в щели принтера.
   const x=nt.x, y=nt.y, on=!nt.read;
+  const lt=litAt(x,y-22,300), mb=Math.round(38+lt.k*52);
+  const MET='rgb('+mb+','+(mb+5)+','+(mb+12)+')';
+  const flick=on?(0.88+0.12*Math.sin(time*23.7+x)):1;
   ctx.save();
-  ctx.fillStyle='rgba(0,0,0,.38)';
-  ctx.beginPath(); ctx.ellipse(x,y-1,15,3.4,0,0,7); ctx.fill();
-  ctx.fillStyle='#2a2f3a';                       // тумба
-  rr(ctx,x-6,y-13,12,13,2); ctx.fill();
-  ctx.fillStyle='#20242d';
-  rr(ctx,x-13,y-4,26,5,2); ctx.fill();
-  ctx.save(); ctx.translate(x,y-13); ctx.rotate(-0.13);   // корпус с наклоном
-  ctx.fillStyle='#333a47'; rr(ctx,-13,-22,26,23,3); ctx.fill();
-  ctx.fillStyle='#191d25'; rr(ctx,-10.5,-19.5,21,15,2); ctx.fill();
-  const glow=on?(0.34+0.16*Math.sin(time*2.4+x)):0.16;
-  ctx.fillStyle=on?'rgba(255,186,92,'+glow+')':'rgba(96,150,120,.30)';
-  rr(ctx,-9.5,-18.5,19,13,1.5); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.30)';               // строки развёртки
-  for(let i=0;i<5;i++) ctx.fillRect(-9.5,-18+i*2.6,19,1);
-  if(on&&Math.sin(time*5)>0){                    // мигающий курсор
-    ctx.fillStyle='rgba(20,12,4,.85)'; ctx.fillRect(-7.5,-9.5,4,2);
-  }
-  ctx.fillStyle='#454d5c'; rr(ctx,-13,-1.5,26,3,1.2); ctx.fill();   // щель принтера
+  ctx.fillStyle='rgba(0,0,0,.40)';
+  ctx.beginPath(); ctx.ellipse(x,y-1,17,3.8,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(10,12,18,.75)'; ctx.lineWidth=2;      // кабель уходит в пол
+  ctx.beginPath(); ctx.moveTo(x+9,y-9);
+  ctx.quadraticCurveTo(x+19,y-5,x+16,y-1); ctx.stroke();
+  const bodyG=ctx.createLinearGradient(x-10,0,x+10,0);        // тумба
+  bodyG.addColorStop(0,'rgb('+(mb-14)+','+(mb-9)+','+(mb-2)+')');
+  bodyG.addColorStop(.4,'rgb('+(mb+18)+','+(mb+23)+','+(mb+30)+')');
+  bodyG.addColorStop(1,'rgb('+(mb-18)+','+(mb-13)+','+(mb-6)+')');
+  ctx.fillStyle=bodyG; rr(ctx,x-10,y-17,20,17,2); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.42)';                            // вентиляция
+  for(let i=0;i<4;i++) ctx.fillRect(x-6.5,y-14+i*3,13,1.4);
+  ctx.fillStyle='rgba(255,255,255,.08)';
+  for(let i=0;i<4;i++) ctx.fillRect(x-6.5,y-14+i*3,13,.5);
+  ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(x-10,y-2.4,20,2.4);   // цоколь
+  ctx.fillStyle=MET; rr(ctx,x-14,y-21,28,5,1.6); ctx.fill();   // клавиатурная полка
+  ctx.fillStyle='rgba(0,0,0,.40)'; rr(ctx,x-12,y-20.2,24,3,1); ctx.fill();
+  ctx.fillStyle='rgba(200,208,224,.30)';                       // клавиши
+  for(let r2=0;r2<2;r2++) for(let i=0;i<9;i++) ctx.fillRect(x-11+i*2.5,y-19.8+r2*1.5,1.7,1);
+  ctx.save(); ctx.translate(x,y-21); ctx.rotate(-0.15);        // наклонная панель с ЭЛТ
+  const csG=ctx.createLinearGradient(0,-24,0,1);
+  csG.addColorStop(0,'rgb('+(mb+22)+','+(mb+27)+','+(mb+34)+')');
+  csG.addColorStop(1,'rgb('+(mb-16)+','+(mb-11)+','+(mb-4)+')');
+  ctx.fillStyle=csG; rr(ctx,-15,-25,30,26,3.5); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(-15,-25,30,1.2);
+  ctx.fillStyle='rgba(0,0,0,.55)'; rr(ctx,-12,-22,24,17,2.5); ctx.fill();   // ниша экрана
+  const scr=on?'rgba(255,186,92,':'rgba(96,150,120,';
+  const gl=(on?(0.40+0.14*Math.sin(time*2.4+x)):0.15)*flick;
+  const sg4=ctx.createRadialGradient(0,-13.5,0,0,-13.5,16);    // ЭЛТ светит из центра
+  sg4.addColorStop(0,scr+(gl*1.25)+')'); sg4.addColorStop(1,scr+(gl*0.55)+')');
+  ctx.fillStyle=sg4; rr(ctx,-10.8,-20.8,21.6,14.6,2); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.34)';                            // строки развёртки
+  for(let i=0;i<7;i++) ctx.fillRect(-10.8,-20.4+i*2.1,21.6,.9);
+  if(on){ ctx.fillStyle='rgba(28,16,4,.55)';                  // строки текста
+    for(let i=0;i<4;i++) ctx.fillRect(-8.4,-18.6+i*3.1,11-i*1.6,1.1);
+    if(Math.sin(time*5)>0){ ctx.fillStyle='rgba(24,12,2,.9)'; ctx.fillRect(-8.4,-6.6,3.4,1.6); } }
+  ctx.fillStyle='rgba(255,255,255,.10)';                      // блик по стеклу
+  ctx.beginPath(); ctx.moveTo(-10,-20.4); ctx.lineTo(-2.4,-20.4);
+  ctx.lineTo(-8.2,-6.6); ctx.lineTo(-10.8,-6.6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=MET; rr(ctx,-15,-4.4,30,4.2,1.4); ctx.fill();  // щель принтера
+  ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(-12.5,-3.4,25,1.6);
   ctx.restore();
-  // распечатка торчит из щели и чуть шевелится
-  const w1=Math.sin(time*1.4+x)*1.1;
-  ctx.save(); ctx.translate(x-1,y-14); ctx.rotate(0.06+w1*0.02);
-  ctx.fillStyle='#e6dcc2';
+  const w1=Math.sin(time*1.4+x)*1.1;                          // распечатка шевелится
+  ctx.save(); ctx.translate(x-1,y-22); ctx.rotate(0.06+w1*0.02);
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.moveTo(-6,1.5); ctx.lineTo(8,0.5);
+  ctx.lineTo(9+w1,10.5); ctx.lineTo(-5+w1,12); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#e8dfc7';
   ctx.beginPath(); ctx.moveTo(-7,0); ctx.lineTo(7,-1);
   ctx.lineTo(8+w1,9); ctx.lineTo(-6+w1,10.5); ctx.closePath(); ctx.fill();
   ctx.strokeStyle='rgba(120,108,84,.45)'; ctx.lineWidth=.8;
   for(let i=0;i<3;i++){ ctx.beginPath();
     ctx.moveTo(-4.5,2.2+i*2.6); ctx.lineTo(5,1.6+i*2.6); ctx.stroke(); }
   ctx.restore();
-  ctx.fillStyle=on?'rgba(255,168,70,.9)':'rgba(96,150,120,.6)';     // индикатор
-  ctx.beginPath(); ctx.arc(x+9,y-30,1.5,0,7); ctx.fill();
+  const li=on?[255,168,70]:[96,150,120];                      // индикатор на корпусе
+  ctx.fillStyle='rgba('+li[0]+','+li[1]+','+li[2]+','+(on?(0.65+0.35*Math.sin(time*3.1)):0.5)+')';
+  ctx.beginPath(); ctx.arc(x+11,y-27,1.6,0,7); ctx.fill();
+  if(on){ ctx.save(); ctx.globalCompositeOperation='lighter';  // свечение экрана наружу
+    const eg4=ctx.createRadialGradient(x-1,y-33,0,x-1,y-33,34);
+    eg4.addColorStop(0,'rgba(255,186,92,'+(0.20*flick)+')');
+    eg4.addColorStop(1,'rgba(255,150,60,0)');
+    ctx.fillStyle=eg4; ctx.fillRect(x-40,y-70,80,74); ctx.restore(); }
   ctx.restore();
   if(nt.near&&!isTouch){                       // подсказка, что запись можно прочитать
     const a2=0.55+0.45*Math.sin(time*4);
-    ctx.save(); ctx.translate(nt.x,nt.y-44);
+    ctx.save(); ctx.translate(nt.x,nt.y-50);
     ctx.font='700 13px "Chalkboard SE","Comfortaa",sans-serif'; ctx.textAlign='center';
     const txt=LANG==='en'?'E — read':'E — прочитать';
     const w=ctx.measureText(txt).width+16;
@@ -3041,9 +3038,9 @@ function drawEnding(){
   }
 
   // ── цех, из которого он вышел ──
-  const fx=26, fw=196, fTop=yG-150, twX=fx+124, twW=72, twTop=yG-212;
-  // Грузовые ворота: большие, чтобы раскрытие было событием, а не щёлкой.
-  const dW=96, dX=fx+34, dTop=yG-124, dH=yG-dTop;
+  const fx=26, fw=268, fTop=yG-150, twX=fx+196, twW=72, twTop=yG-212;
+  // Ворота большие, поэтому корпус шире: фасаду нужно место на окна.
+  const dW=96, dX=fx+34, dTop=yG-112, dH=yG-dTop;
   const wall=eMix('#08080d','#241a26',sunUp*0.75);
   const wall2=eMix('#05050a','#1a1220',sunUp*0.75);
   const rim='rgba(255,206,150,'+(0.50*sunUp)+')';     // край, обращённый к солнцу
@@ -3063,7 +3060,7 @@ function drawEnding(){
   ctx.beginPath(); ctx.moveTo(fx+fw,fTop); ctx.lineTo(fx+fw+16,fTop+9);
   ctx.lineTo(fx+fw+16,yG); ctx.lineTo(fx+fw,yG); ctx.closePath(); ctx.fill();
   // пилообразная крыша с фермами
-  for(let i=0;i<5;i++){ const sx0=fx+6+i*38;
+  for(let i=0,nt=Math.floor((fw-14)/38);i<nt;i++){ const sx0=fx+6+i*38;
     ctx.fillStyle=wall;
     ctx.beginPath(); ctx.moveTo(sx0,fTop); ctx.lineTo(sx0+20,fTop-22); ctx.lineTo(sx0+20,fTop); ctx.closePath(); ctx.fill();
     ctx.fillStyle='rgba(255,204,146,'+(0.26*sunUp)+')';     // застеклённый скат ловит свет
@@ -3103,11 +3100,10 @@ function drawEnding(){
   for(let x=fx+7;x<fx+fw;x+=9){ ctx.beginPath(); ctx.moveTo(x,fTop); ctx.lineTo(x,yG); ctx.stroke(); }
   ctx.restore();
   // окна: часть ещё горит, часть выбита, под каждым — потёк
-  const lit=[2,5,9];
+  const lit=[2,3,7];
   for(let r2=0;r2<3;r2++) for(let c2=0;c2<4;c2++){
     const wx=fx+16+c2*44, wy=fTop+18+r2*38, id=r2*4+c2;
     if(wx>twX-10&&wy>twTop) continue;
-    if(wx+26>dX-14&&wx<dX+dW+14&&wy+20>dTop-34) continue;   // окна не лезут на ворота
     const on=lit.indexOf(id)>=0;
     ctx.fillStyle=on?'rgba(255,206,132,'+(0.34+0.22*Math.sin(T*1.3+id))+')'
                    :'rgba(255,225,190,'+(0.05+0.09*sunUp)+')';
@@ -3119,7 +3115,7 @@ function drawEnding(){
     rust.addColorStop(0,'rgba(120,62,34,'+(0.30*(0.4+sunUp))+')');
     rust.addColorStop(1,'rgba(120,62,34,0)');
     ctx.fillStyle=rust; ctx.fillRect(wx+4,wy+20,18,32);
-    if(id===4||id===7){ ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1.4;
+    if(id===1||id===11){ ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1.4;
       ctx.beginPath(); ctx.moveTo(wx+3,wy+16); ctx.lineTo(wx+13,wy+4); ctx.lineTo(wx+23,wy+15); ctx.stroke(); }
   }
   // труба вдоль стены
@@ -3139,7 +3135,7 @@ function drawEnding(){
   // ── грузовые ворота: замок, гидравлика, зубья расходятся, свет бьёт наружу ──
   const shut=1-doorOpen;
   const warn=clamp((T-0.10)/0.35,0,1)*(1-clamp((T-2.9)/0.5,0,1));   // проблесковые маяки
-  ctx.fillStyle='rgba(0,0,0,.72)'; ctx.fillRect(dX-10,dTop-12,dW+20,dH+12);   // ниша
+  ctx.fillStyle='#0b0810'; ctx.fillRect(dX,dTop,dW,dH);                        // нутро проёма
   if(doorOpen>0.002){
     const dA=0.34+0.60*doorOpen;
     const din=ctx.createLinearGradient(0,dTop,0,yG);
@@ -3248,6 +3244,7 @@ function drawEnding(){
       const hx=sd<0?lx+half-12:lx+12;
       ctx.beginPath(); ctx.moveTo(hx,dTop+dH*0.46); ctx.lineTo(hx,dTop+dH*0.46+16); ctx.stroke();
       const anchor=sd<0?dX+2:dX+dW-2, head=sd<0?lx+12:lx+half-12;   // гидроцилиндр тянет створку
+      ctx.globalAlpha=clamp(shut*2.2,0,1);                            // уезжают вместе со створкой
       for(const ry of [dTop+dH*0.20,dTop+dH*0.76]){
         ctx.strokeStyle=eMix('#0d0a12','#33232f',sunUp*0.8); ctx.lineWidth=7;
         ctx.beginPath(); ctx.moveTo(anchor,ry); ctx.lineTo(anchor-sd*13,ry); ctx.stroke();
@@ -3256,6 +3253,7 @@ function drawEnding(){
         ctx.fillStyle=eMix('#171119','#3e2c3c',sunUp*0.8);
         ctx.beginPath(); ctx.arc(head,ry,3.2,0,7); ctx.fill();
       }
+      ctx.globalAlpha=1;
     }
     ctx.restore();
     if(doorOpen>0.004){                                      // раскалённый стык
@@ -3308,7 +3306,7 @@ function drawEnding(){
   for(let i=0;i<6;i++){ ctx.fillRect(dX-9,dTop+6+i*(dH-14)/5,8,2);
     ctx.fillRect(dX+dW+1,dTop+6+i*(dH-14)/5,8,2); }
   ctx.fillStyle=eMix('#0f0b14','#3a2736',sunUp*0.8);
-  ctx.fillRect(dX-13,dTop-17,dW+26,13);                      // перемычка
+  ctx.fillRect(dX-13,dTop-17,dW+26,18);                      // перемычка
   ctx.fillRect(dX-16,dTop-33,dW+32,17);                      // короб механизма
   ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(dX-16,dTop-33,dW+32,2);
   ctx.fillStyle='rgba(0,0,0,.45)';                           // кожухи редукторов
