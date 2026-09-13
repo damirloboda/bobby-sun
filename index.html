@@ -2165,27 +2165,46 @@ function drawExit(){
   ctx.restore();
 }
 function drawCheck(c){
-  // Фонарь на кованом столбе. Внутри стекла живёт пойманный огонёк:
-  // спит — тлеет угольком, проснулся — поднимается и разгорается.
+  // Фонарь на кованом столбе. Внутри — живой огонёк: спит угольком за пыльным
+  // треснувшим стеклом, а от касания вспыхивает, выбрасывает сноп искр, раскачивает
+  // фонарь и дальше горит, водя по полу узором от граней стекла.
   const on=c.on, lt=litAt(c.x,c.y-30,340);
+  const dtc=Math.min(0.05,DT||1/60);
   const age=on?(time-(c.t0||0)):0;
   const ign=on?clamp(age/0.55,0,1):0;                      // огонёк разгорается
-  const fl=on?clamp(1-(age-0.35)/0.9,0,1):0;               // вспышка
+  const fl=on?clamp(1-(age-0.30)/0.95,0,1):0;              // вспышка зажигания
   const fl2=fl*fl;
   const X=c.x, B=c.y;
-  const sway=Math.sin(time*1.15+X*0.07)*(on?0.030:0.016);  // фонарь качается
+  // маятник: толчок в момент зажигания, дальше затухает сам
+  if(c.sw===undefined){ c.sw=0; c.swv=0; }
+  if(on&&!c.kick){ c.kick=1; c.swv=-2.9; }
+  c.swv+=(-c.sw*13.5-c.swv*1.5)*dtc;
+  c.sw+=c.swv*dtc;
+  const sway=c.sw*0.20+Math.sin(time*1.15+X*0.07)*(on?0.028:0.014);
   const mb=Math.round(44+lt.k*58);
   const IRON='rgb('+mb+','+(mb+4)+','+(mb+10)+')';
   const col=on?[168,255,196]:[210,96,74];
-  const bri=on?(0.55+0.45*ign*(0.82+0.18*Math.sin(time*3.1))):(0.26+0.12*Math.sin(time*1.3));
+  const flick=on?(0.86+0.14*Math.sin(time*11.3+X)+0.06*Math.sin(time*27.1)):1;
+  const bri=on?(0.55+0.45*ign*(0.82+0.18*Math.sin(time*3.1))*flick)
+             :(0.24+0.14*Math.abs(Math.sin(time*0.9)*Math.sin(time*2.3)));
+  const HX=X-8, HY=B-36;                                   // точка подвеса
+  const LT2=8, LB=23, LW=6.2;                              // габариты стекла
+  const lanX=HX+Math.sin(sway)*15, lanY=HY+Math.cos(sway)*15;   // центр фонаря в мире
   ctx.save();
-  if(on){                                                  // тёплая лужа света на полу
+  if(on){                                                  // узор от граней стекла на полу
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    const px5=X-8+Math.sin(Math.sin(time*1.15+X*0.07)*0.030)*15;   // лужа едет за фонарём
-    const pg=ctx.createRadialGradient(px5,B-1,0,px5,B-1,34*ign);
-    pg.addColorStop(0,'rgba(150,255,190,'+(0.17*ign)+')');
+    const pg=ctx.createRadialGradient(lanX,B-1,0,lanX,B-1,36*ign);
+    pg.addColorStop(0,'rgba(150,255,190,'+(0.15*ign*flick)+')');
     pg.addColorStop(1,'rgba(150,255,190,0)');
-    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(px5,B-1,34*ign,9*ign,0,0,7); ctx.fill(); ctx.restore();
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(lanX,B-1,36*ign,9*ign,0,0,7); ctx.fill();
+    for(let k=-1;k<=1;k++){                                // четыре полосы света от рёбер
+      const px6=lanX+k*13+Math.sin(sway)*9;
+      ctx.fillStyle='rgba(176,255,208,'+(0.09*ign*flick)+')';
+      ctx.beginPath();
+      ctx.moveTo(px6-2.2,B-3); ctx.lineTo(px6+2.2,B-3);
+      ctx.lineTo(px6+7+k*3,B+3); ctx.lineTo(px6-7+k*3,B+3); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
   }
   ctx.fillStyle='rgba(0,0,0,.34)';
   ctx.beginPath(); ctx.ellipse(X,B-1,10,2.8,0,0,7); ctx.fill();
@@ -2200,21 +2219,19 @@ function drawCheck(c){
   pg2.addColorStop(.38,'rgb('+(mb+20)+','+(mb+25)+','+(mb+32)+')');
   pg2.addColorStop(1,'rgb('+(mb-18)+','+(mb-14)+','+(mb-8)+')');
   ctx.fillStyle=pg2; ctx.fillRect(X-2.4,POST,4.8,B-4-POST);
-  ctx.fillStyle='rgba(74,52,34,.26)';                                 // патина на столбе
+  ctx.fillStyle='rgba(74,52,34,.26)';                      // патина
   ctx.fillRect(X-2.4,B-24,2.2,7); ctx.fillRect(X+0.6,B-15,1.8,5);
-  ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(X-3.4,B-11,6.8,2);    // хомут
+  ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(X-3.4,B-11,6.8,2);
   ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(X-3.4,B-11,6.8,.7);
   ctx.strokeStyle=IRON; ctx.lineWidth=2.2; ctx.lineCap='round';       // кованый завиток
   ctx.beginPath(); ctx.moveTo(X,POST+2);
   ctx.quadraticCurveTo(X-1.5,POST-7,X-6.5,POST-8.5); ctx.stroke();
   ctx.beginPath(); ctx.arc(X-8,POST-7.2,2.1,-0.5,3.5); ctx.stroke();
-  const HX=X-8, HY=POST-6;                                 // точка подвеса
   ctx.save(); ctx.translate(HX,HY); ctx.rotate(sway);
   ctx.strokeStyle=IRON; ctx.lineWidth=1.4;                 // дужка
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,3.5); ctx.stroke();
   ctx.beginPath(); ctx.arc(0,7,3.4,Math.PI,0); ctx.stroke();
-  const LT2=8, LB=23, LW=6.2;                              // стекло фонаря
-  const gGrad=ctx.createLinearGradient(-LW,0,LW,0);
+  const gGrad=ctx.createLinearGradient(-LW,0,LW,0);        // стекло
   gGrad.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.10+0.16*bri)+')');
   gGrad.addColorStop(.5,'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.26+0.44*bri)+')');
   gGrad.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.10+0.16*bri)+')');
@@ -2224,22 +2241,34 @@ function drawCheck(c){
   ctx.closePath();
   ctx.fillStyle='rgba(14,20,18,.86)'; ctx.fill();
   ctx.fillStyle=gGrad; ctx.fill();
-  const orbY=LB-4.5-ign*5.5;                               // огонёк внутри
+  // живой огонёк: гуляет восьмёркой, за ним тянется хвостик
+  const ow=Math.sin(time*1.9+X)*1.7*ign, oh=Math.sin(time*3.8+X)*0.9*ign;
+  const orbX=ow, orbY=LB-4.5-ign*5.5+oh;
+  if(on&&ign>0.05){
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(let k=1;k<=4;k++){                                 // хвост огонька
+      const tx=Math.sin(time*1.9+X-k*0.22)*1.7*ign;
+      const ty=LB-4.5-ign*5.5+Math.sin(time*3.8+X-k*0.22)*0.9*ign+k*0.5;
+      ctx.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(0.16*bri/k)+')';
+      ctx.beginPath(); ctx.arc(tx,ty,1.5-k*0.24,0,7); ctx.fill();
+    }
+    ctx.restore();
+  }
   ctx.save(); ctx.globalCompositeOperation='lighter';
-  const og=ctx.createRadialGradient(0,orbY,0,0,orbY,9+6*ign);
-  og.addColorStop(0,'rgba(238,255,244,'+(0.55*bri+0.4*fl2)+')');
+  const og=ctx.createRadialGradient(orbX,orbY,0,orbX,orbY,9+6*ign);
+  og.addColorStop(0,'rgba(238,255,244,'+(0.55*bri+0.45*fl2)+')');
   og.addColorStop(0.35,'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.44*bri)+')');
   og.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
   ctx.fillStyle=og; ctx.fillRect(-LW,LT2,LW*2,LB-LT2);
   ctx.restore();
   ctx.fillStyle='rgba(246,255,250,'+(0.50+0.50*bri)+')';
-  ctx.beginPath(); ctx.arc(0,orbY,1.5+1.1*ign,0,7); ctx.fill();
-  if(on&&ign>0.15){                                        // свет пробивается гранями стекла
+  ctx.beginPath(); ctx.arc(orbX,orbY,1.5+1.1*ign,0,7); ctx.fill();
+  if(on&&ign>0.15){                                        // свет пробивается гранями
     ctx.save(); ctx.globalCompositeOperation='lighter';
     for(const sd2 of [-1,1]) for(let k=0;k<2;k++){
       const a5=sd2*(0.55+k*0.42), L5=26+k*10;
       const rg5=ctx.createLinearGradient(0,orbY,Math.sin(a5)*L5,orbY+Math.cos(a5)*L5*0.4);
-      rg5.addColorStop(0,'rgba(170,255,206,'+(0.13*ign)+')');
+      rg5.addColorStop(0,'rgba(170,255,206,'+(0.12*ign*flick)+')');
       rg5.addColorStop(1,'rgba(150,240,190,0)');
       ctx.fillStyle=rg5; ctx.beginPath();
       ctx.moveTo(0,orbY-1.6); ctx.lineTo(0,orbY+1.6);
@@ -2248,6 +2277,15 @@ function drawCheck(c){
       ctx.closePath(); ctx.fill();
     }
     ctx.restore();
+  }
+  if(!on){                                                 // пыль, трещина и паутинка на спящем стекле
+    ctx.strokeStyle='rgba(226,230,236,.16)'; ctx.lineWidth=.7;
+    ctx.beginPath(); ctx.moveTo(-3.4,LT2+3); ctx.lineTo(-1,LT2+8);
+    ctx.lineTo(-3,LT2+11); ctx.lineTo(0.6,LB-4); ctx.stroke();
+    ctx.strokeStyle='rgba(210,214,220,.12)';
+    ctx.beginPath(); ctx.moveTo(LW-1.6,LT2+1.5); ctx.lineTo(LW-5,LT2+5.5);
+    ctx.moveTo(LW-1.6,LT2+5.5); ctx.lineTo(LW-5,LT2+1.5); ctx.stroke();
+    ctx.fillStyle='rgba(120,116,104,.12)'; ctx.fillRect(-LW+2,LB-6,LW*2-4,4);
   }
   ctx.strokeStyle='rgba(255,255,255,'+(0.10+0.22*bri)+')'; ctx.lineWidth=1;   // блик по стеклу
   ctx.beginPath(); ctx.moveTo(-LW+2.4,LT2+2.5); ctx.lineTo(-LW+2.4,LB-3); ctx.stroke();
@@ -2264,24 +2302,45 @@ function drawCheck(c){
   ctx.fillStyle=IRON;
   ctx.beginPath(); ctx.moveTo(-LW-1.4,LB); ctx.lineTo(LW+1.4,LB);
   ctx.lineTo(LW-1,LB+2.4); ctx.lineTo(-LW+1,LB+2.4); ctx.closePath(); ctx.fill();
-  if(on){                                                  // искры поднимаются из фонаря
-    for(let i=0;i<3;i++){ const t2=(time*0.5+i*0.33)%1;
-      ctx.fillStyle='rgba(214,255,230,'+(0.34*ign*(1-t2))+')';
-      ctx.beginPath(); ctx.arc(Math.sin(time*1.7+i*2)*2.4,LT2-4-t2*14,0.7,0,7); ctx.fill(); }
+  if(on){                                                  // дымок из-под крышки
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(let i=0;i<4;i++){ const t2=(time*0.42+i*0.25)%1;
+      ctx.fillStyle='rgba(206,255,226,'+(0.16*ign*(1-t2))+')';
+      ctx.beginPath(); ctx.arc(Math.sin(time*1.4+i*2)*(1.4+t2*3),LT2-5-t2*17,0.8+t2*1.6,0,7); ctx.fill(); }
+    ctx.restore();
   }
   ctx.restore();
+  if(on){                                                  // угольки кружат вокруг фонаря
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(let i=0;i<3;i++){
+      const a6=time*(0.7+i*0.22)+i*2.1;
+      const rr6=15+i*4, ex=lanX+Math.cos(a6)*rr6, ey=lanY+Math.sin(a6)*rr6*0.5-2;
+      const dep=0.45+0.55*(0.5+0.5*Math.sin(a6));
+      ctx.fillStyle='rgba(200,255,224,'+(0.34*ign*dep)+')';
+      ctx.beginPath(); ctx.arc(ex,ey,0.8+0.5*dep,0,7); ctx.fill();
+    }
+    ctx.restore();
+  }
   ctx.save(); ctx.globalCompositeOperation='lighter';      // ореол фонаря
-  const gx=HX+Math.sin(sway)*15, gy=HY+15;
-  const g3=ctx.createRadialGradient(gx,gy,0,gx,gy,(on?44:22)+fl2*44);
-  g3.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.21*ign:0.13)+0.40*fl2)+')');
+  const g3=ctx.createRadialGradient(lanX,lanY,0,lanX,lanY,(on?46:22)+fl2*52);
+  g3.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.21*ign*flick:0.13)+0.45*fl2)+')');
   g3.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
-  ctx.fillStyle=g3; ctx.fillRect(gx-96,gy-96,192,192);
-  if(fl>0.001){                                            // волна по земле при зажигании
-    const r1=8+(1-fl)*46;
-    ctx.strokeStyle='rgba(180,255,210,'+(0.42*fl2)+')'; ctx.lineWidth=1.2+2.0*fl;
+  ctx.fillStyle=g3; ctx.fillRect(lanX-110,lanY-110,220,220);
+  if(fl>0.001){                                            // ударная волна от стекла и по земле
+    const r0=6+(1-fl)*40;
+    ctx.strokeStyle='rgba(236,255,244,'+(0.55*fl2)+')'; ctx.lineWidth=1.2+2.6*fl;
+    ctx.beginPath(); ctx.arc(lanX,lanY,r0,0,7); ctx.stroke();
+    const r1=8+(1-fl)*52;
+    ctx.strokeStyle='rgba(180,255,210,'+(0.40*fl2)+')'; ctx.lineWidth=1.2+2.0*fl;
     ctx.beginPath(); ctx.ellipse(X,B-1,r1,r1*0.28,0,0,7); ctx.stroke();
   }
   ctx.restore();
+  if(on&&age<0.16&&Math.random()<0.75){                    // сноп искр из фонаря при зажигании
+    for(let i=0;i<3;i++){ const a7=-1.57+(Math.random()*2-1)*1.25;
+      parts.push({x:lanX,y:lanY-6,
+        vx:Math.cos(a7)*(60+Math.random()*130),vy:Math.sin(a7)*(90+Math.random()*140),
+        life:.45+Math.random()*.45,r:.8+Math.random()*1.2,c:'#c8ffdc',g:440}); }
+  }
   ctx.restore();
 }
 function drawNote(nt){
