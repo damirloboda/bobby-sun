@@ -2262,156 +2262,181 @@ function drawExit(){
   ctx.restore();
 }
 function drawCheck(c){
-  // Сварочный робот. Мёртвая рука сложена на станине. Бобби задевает пульт —
-  // сервоприводы оживают, рука разворачивается и зажигает дугу. Дуга слепит,
-  // рвано мигает, плюётся искрами и варит шов до конца уровня.
+  // Огненный штандарт. Мачта с жаровней наверху и скатанным полотнищем.
+  // Бобби задевает — мехи раздувают угли, вверх бьёт живой огонь, стопор
+  // срывается, и флаг с грохотом раскатывается и ходит волной.
   const on=c.on, dtc=Math.min(0.05,DT||1/60);
   const age=on?(time-(c.t0||0)):0;
   const ss2=t=>t*t*(3-2*t);
   const X=c.x, B=c.y;
-  const boot=on?clamp(age/0.18,0,1):0;                       // сервоприводы под напряжением
-  const fl=on?(clamp((age-0.34)/0.04,0,1)*clamp(1-(age-0.40)/0.7,0,1)):0;  // розжиг
+  const blow=on?clamp(age/0.20,0,1):0;                        // мехи качают, угли белеют
+  const fl=on?(clamp((age-0.19)/0.04,0,1)*clamp(1-(age-0.24)/0.85,0,1)):0;
   const fl2=fl*fl;
-  if(!isFinite(c.dp)) c.dp=0; if(!isFinite(c.dv)) c.dv=0;    // разворот руки на пружине
-  const depT=(on&&age>0.16)?1:0;
-  c.dv+=((depT-c.dp)*96-c.dv*13)*dtc; c.dp+=c.dv*dtc;
-  const dep=clamp(c.dp,0,1.15);
-  const welding=on&&age>0.36;
-  // Дуга горит рвано: две несинхронные частоты и редкие провалы.
-  const chaos=Math.sin(time*43.7)*Math.sin(time*29.3)+0.35*Math.sin(time*97.1);
-  const arc=welding?clamp(0.30+0.85*(chaos+0.55),0,1)*(Math.sin(time*7.3)>-0.93?1:0.12):0;
-  const lt=litAt(X,B-24,320), mb=Math.round(42+lt.k*54);
-  const M=k=>'rgb('+Math.round(mb*k)+','+Math.round((mb+5)*k)+','+Math.round((mb+12)*k)+')';
-  const SEAM=X+17;                                           // где варится шов
-  const seamX=SEAM+Math.sin(time*0.5)*5;
+  const fire=on?ss2(clamp((age-0.20)/0.55,0,1)):0;            // пламя набирает силу
+  if(!isFinite(c.un)) c.un=0; if(!isFinite(c.uv)) c.uv=0;     // полотнище раскатывается
+  const unT=(on&&age>0.26)?1:0;
+  c.uv+=((unT-c.un)*74-c.uv*12)*dtc; c.un+=c.uv*dtc;
+  const unr=clamp(c.un,0,1.08);
+  const lt=litAt(X,B-40,320), mb=Math.round(40+lt.k*50);
+  const M=k=>'rgb('+Math.round(mb*k)+','+Math.round((mb+4)*k)+','+Math.round((mb+10)*k)+')';
+  // Пламя дышит тремя несинхронными частотами — ровное горение выдаёт подделку.
+  const lick=0.74+0.16*Math.sin(time*8.3)+0.07*Math.sin(time*17.7)+0.05*Math.sin(time*3.1);
+  const heat=fire*lick;
+  const MAST=B-6, TOP=B-54, BAR=B-40, BW=23;
   ctx.save();
-  if(welding){                                               // жёсткий свет дуги на пол
+  if(on){                                                     // тёплая лужа под мачтой
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    const pr=30+26*arc;
-    const pg=ctx.createRadialGradient(seamX,B-2,0,seamX,B-2,pr);
-    pg.addColorStop(0,'rgba(206,232,255,'+(0.30*arc)+')');
-    pg.addColorStop(0.45,'rgba(150,190,255,'+(0.11*arc)+')');
-    pg.addColorStop(1,'rgba(120,170,255,0)');
-    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(seamX,B-2,pr,10,0,0,7); ctx.fill();
+    const pr=30+34*fire;
+    const pg=ctx.createRadialGradient(X,B-1,0,X,B-1,pr);
+    pg.addColorStop(0,'rgba(255,190,104,'+(0.20*heat)+')');
+    pg.addColorStop(0.5,'rgba(255,138,54,'+(0.08*heat)+')');
+    pg.addColorStop(1,'rgba(255,120,40,0)');
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(X,B-1,pr,11,0,0,7); ctx.fill();
     ctx.restore();
   }
   ctx.fillStyle='rgba(0,0,0,.42)';
-  ctx.beginPath(); ctx.ellipse(X+4,B-1,17,3.2,0,0,7); ctx.fill();
-  // ── свариваемая заготовка на полу ──
-  ctx.fillStyle=M(0.78);
-  ctx.beginPath(); ctx.moveTo(X+7,B); ctx.lineTo(X+29,B);
-  ctx.lineTo(X+27,B-5); ctx.lineTo(X+9,B-5); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(X+9,B-5,18,1);
-  if(on){                                                    // остывающий шов тлеет позади головки
+  ctx.beginPath(); ctx.ellipse(X,B-1,12,3,0,0,7); ctx.fill();
+  ctx.fillStyle=M(0.95);                                      // станина и мехи
+  ctx.beginPath(); ctx.moveTo(X-12,B); ctx.lineTo(X+12,B);
+  ctx.lineTo(X+8,MAST); ctx.lineTo(X-8,MAST); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.09)'; ctx.fillRect(X-8,MAST,16,1);
+  for(const bx of [X-9,X+9]){ ctx.fillStyle='rgba(0,0,0,.5)';
+    ctx.beginPath(); ctx.arc(bx,B-2,1.2,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.13)'; ctx.beginPath(); ctx.arc(bx,B-2.4,.8,0,7); ctx.fill(); }
+  { const bl=on?(0.5+0.5*Math.sin(time*5.4)):0;               // мех дышит, пока горит
+    const bh=3.2+1.6*bl*fire;
+    ctx.fillStyle=M(0.7);
+    ctx.beginPath(); ctx.moveTo(X-13,MAST-1); ctx.lineTo(X-6,MAST-1);
+    ctx.lineTo(X-6,MAST-1-bh); ctx.lineTo(X-13,MAST-1-bh*0.5); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=.7;
+    ctx.beginPath(); ctx.moveTo(X-12,MAST-1-bh*0.28); ctx.lineTo(X-7,MAST-1-bh*0.62); ctx.stroke(); }
+  const mg=ctx.createLinearGradient(X-2.4,0,X+2.4,0);         // мачта
+  mg.addColorStop(0,M(0.66)); mg.addColorStop(.38,M(1.22)); mg.addColorStop(1,M(0.74));
+  ctx.fillStyle=mg; ctx.fillRect(X-2.4,TOP,4.8,MAST-TOP);
+  if(on){                                                     // железо у жаровни раскаляется
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    const sg=ctx.createLinearGradient(X+9,0,seamX,0);
-    sg.addColorStop(0,'rgba(255,108,32,0)');
-    sg.addColorStop(1,'rgba(255,168,72,'+(0.55*boot)+')');
-    ctx.fillStyle=sg; ctx.fillRect(X+9,B-5.6,Math.max(0,seamX-(X+9)),2.2);
-    ctx.restore();
+    const hg=ctx.createLinearGradient(0,TOP,0,TOP+26);
+    hg.addColorStop(0,'rgba(255,120,40,'+(0.45*heat)+')');
+    hg.addColorStop(1,'rgba(255,90,30,0)');
+    ctx.fillStyle=hg; ctx.fillRect(X-2.4,TOP,4.8,26); ctx.restore();
   }
-  // ── станина ──
-  ctx.fillStyle=M(1.0);
-  ctx.beginPath(); ctx.moveTo(X-13,B); ctx.lineTo(X+5,B);
-  ctx.lineTo(X+2.5,B-7); ctx.lineTo(X-10.5,B-7); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(X-10.5,B-7,13,1.1);
-  ctx.fillStyle='rgba(0,0,0,.42)';
-  for(const bx of [X-10,X+1.5]){ ctx.beginPath(); ctx.arc(bx,B-2.4,1.3,0,7); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.13)'; ctx.beginPath(); ctx.arc(bx,B-2.8,.85,0,7); ctx.fill();
-    ctx.fillStyle='rgba(0,0,0,.42)'; }
-  for(let k=0;k<5;k++){                                      // косая разметка по станине
-    const sx=X-9.5+k*2.6;
-    ctx.fillStyle=k%2?'rgba(226,186,72,.45)':'rgba(22,20,18,.5)';
-    ctx.beginPath(); ctx.moveTo(sx,B-1); ctx.lineTo(sx+2,B-6.4);
-    ctx.lineTo(sx+3.4,B-6.4); ctx.lineTo(sx+1.4,B-1); ctx.closePath(); ctx.fill(); }
-  ctx.fillStyle=M(1.18); rr(ctx,X-6.5,B-13,9,7,1.6); ctx.fill();   // колонна плеча
-  ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(X-6.5,B-9.5,9,1.4);
-  // ── рука: плечо и предплечье ──
-  const SX=X-2, SY=B-13;
-  const a1=2.55+(-1.02-2.55)*dep;                            // плечо
-  const a2=a1+(2.15+(0.62-2.15)*dep);                        // предплечье относительно плеча
-  const L1=15, L2=13.5;
-  const EX=SX+Math.cos(a1)*L1, EY=SY+Math.sin(a1)*L1;
-  const HXn=EX+Math.cos(a2)*L2, HYn=EY+Math.sin(a2)*L2;
-  ctx.strokeStyle='rgba(10,12,16,.75)'; ctx.lineWidth=1.2;   // шлейф кабелей
-  ctx.beginPath(); ctx.moveTo(SX-3,SY+2);
-  ctx.quadraticCurveTo(EX-6,EY+7,HXn-3,HYn+2); ctx.stroke();
-  const seg=(x0,y0,x1,y1,w)=>{
-    ctx.strokeStyle=M(0.72); ctx.lineWidth=w+1.6; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
-    ctx.strokeStyle=M(1.16); ctx.lineWidth=w;
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,.10)'; ctx.lineWidth=w*0.32;
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
-  };
-  seg(SX,SY,EX,EY,5.2);
-  seg(EX,EY,HXn,HYn,4.2);
-  const cyl=(x0,y0,x1,y1)=>{                                 // гидроцилиндр вдоль плеча
-    ctx.strokeStyle=M(0.62); ctx.lineWidth=3.4; ctx.lineCap='butt';
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(lerp(x0,x1,.55),lerp(y0,y1,.55)); ctx.stroke();
-    ctx.strokeStyle='rgba(196,206,222,.42)'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(lerp(x0,x1,.5),lerp(y0,y1,.5)); ctx.lineTo(x1,y1); ctx.stroke();
-  };
-  cyl(SX+3.4,SY+2.4,lerp(SX,EX,.82)+2,lerp(SY,EY,.82)+2);
-  for(const jt of [[SX,SY,3.4],[EX,EY,2.9]]){                // суставы
-    ctx.fillStyle=M(1.30); ctx.beginPath(); ctx.arc(jt[0],jt[1],jt[2],0,7); ctx.fill();
-    ctx.fillStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(jt[0],jt[1],jt[2]*0.42,0,7); ctx.fill();
-    ctx.fillStyle=on?('rgba(120,220,255,'+(0.30+0.55*boot)+')'):'rgba(120,96,84,.35)';
-    ctx.beginPath(); ctx.arc(jt[0],jt[1],jt[2]*0.22,0,7); ctx.fill();
+  ctx.fillStyle=M(0.85); ctx.fillRect(X-1.5,BAR-1.6,BW,3.2);  // рея
+  ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(X-1.5,BAR-1.6,BW,.9);
+  ctx.fillStyle=M(1.1); ctx.beginPath(); ctx.arc(X+BW-1.5,BAR,2,0,7); ctx.fill();
+  // ── полотнище ──
+  { const N=11, LEN=(BW-4)*Math.min(1,unr), H0=17*Math.min(1,unr);
+    if(LEN>1.5){
+      const top=[], bot=[];
+      for(let k=0;k<=N;k++){
+        const t2=k/N, px=X+2+LEN*t2;
+        const w=Math.sin(time*3.4-t2*4.2)*3.0*t2*unr + Math.sin(time*1.7-t2*2.1)*1.4*t2;
+        top.push({x:px,y:BAR+1.4+w});
+        bot.push({x:px,y:BAR+1.4+H0+w*1.25+Math.sin(time*2.6-t2*3.4)*1.1*t2});
+      }
+      ctx.beginPath(); ctx.moveTo(top[0].x,top[0].y);
+      for(let k=1;k<=N;k++) ctx.lineTo(top[k].x,top[k].y);
+      for(let k=N;k>=0;k--) ctx.lineTo(bot[k].x,bot[k].y);
+      ctx.closePath();
+      const bgr=ctx.createLinearGradient(X,BAR,X,BAR+H0);      // снизу подсвечен огнём
+      const lit2=0.45*heat;
+      bgr.addColorStop(0,'rgb('+Math.round(96+lt.k*40)+','+Math.round(34+lt.k*16)+','+Math.round(30+lt.k*14)+')');
+      bgr.addColorStop(1,'rgb('+Math.round(140+lt.k*46+lit2*90)+','+Math.round(56+lt.k*20+lit2*60)+','+Math.round(38+lt.k*16+lit2*20)+')');
+      ctx.fillStyle=bgr; ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.fillStyle='rgba(0,0,0,.22)';                         // складки
+      for(let k=1;k<N;k+=2){ const t2=k/N;
+        ctx.fillRect(X+2+LEN*t2,BAR,1.6,BAR+H0+8-BAR); }
+      ctx.fillStyle='rgba(226,170,96,'+(0.24+0.30*heat)+')';   // кант
+      ctx.fillRect(X+2,BAR+1.4,LEN,1.1);
+      ctx.fillRect(X+2,BAR+H0-0.6,LEN,1.1);
+      if(unr>0.5){                                             // знак на полотнище
+        const ex=X+2+LEN*0.55, ey=BAR+1.4+H0*0.5+Math.sin(time*3.4-0.55*4.2)*3.0*0.55;
+        ctx.strokeStyle='rgba(255,206,132,'+(0.35+0.45*heat)+')'; ctx.lineWidth=1.3;
+        ctx.beginPath(); ctx.arc(ex,ey,3.6,0,7); ctx.stroke();
+        for(let k=0;k<8;k++){ const a2=k/8*Math.PI*2+time*0.25;
+          ctx.beginPath();
+          ctx.moveTo(ex+Math.cos(a2)*4.8,ey+Math.sin(a2)*4.8);
+          ctx.lineTo(ex+Math.cos(a2)*6.4,ey+Math.sin(a2)*6.4); ctx.stroke(); }
+      }
+      ctx.restore();
+      ctx.fillStyle='rgba(0,0,0,.30)';                         // рваный нижний край
+      for(let k=0;k<N;k+=2){ const b1=bot[k], b2=bot[k+1]||bot[k];
+        ctx.beginPath(); ctx.moveTo(b1.x,b1.y-1);
+        ctx.lineTo(b2.x,b2.y-1); ctx.lineTo((b1.x+b2.x)/2,(b1.y+b2.y)/2+2.4); ctx.closePath(); ctx.fill(); }
+    } else if(unr<0.5){                                        // ещё скатано в рулон
+      ctx.fillStyle='rgb('+Math.round(96+lt.k*40)+','+Math.round(34+lt.k*16)+','+Math.round(30+lt.k*14)+')';
+      rr(ctx,X+2,BAR+1.4,5.4,6.4,2); ctx.fill();
+      ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(X+2,BAR+4.2,5.4,1);
+    }
   }
-  // ── сварочная головка ──
-  const na=a2+0.30;
-  const NX=HXn+Math.cos(na)*5.5, NY=HYn+Math.sin(na)*5.5;
-  ctx.save(); ctx.translate(HXn,HYn); ctx.rotate(na);
-  ctx.fillStyle=M(1.10); rr(ctx,-2.6,-3.2,8,6.4,1.6); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.40)'; ctx.fillRect(-2.6,-3.2,8,1.2);
-  ctx.fillStyle=M(0.82);
-  ctx.beginPath(); ctx.moveTo(5.4,-2.2); ctx.lineTo(8.6,-0.9);
-  ctx.lineTo(8.6,0.9); ctx.lineTo(5.4,2.2); ctx.closePath(); ctx.fill();   // сопло
-  ctx.restore();
-  // ── дуга ──
-  if(welding&&arc>0.04){
+  // ── жаровня ──
+  ctx.fillStyle=M(1.06);
+  ctx.beginPath(); ctx.moveTo(X-8,TOP-6); ctx.lineTo(X+8,TOP-6);
+  ctx.lineTo(X+5.5,TOP+2); ctx.lineTo(X-5.5,TOP+2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.38)';
+  for(let k=-2;k<=2;k++) ctx.fillRect(X+k*3-0.5,TOP-6,1,8);   // прутья корзины
+  ctx.fillStyle=on?('rgba(255,'+Math.round(120+110*blow)+','+Math.round(40+70*blow)+','+(0.55+0.45*heat)+')')
+                 :'rgba(96,58,42,.55)';
+  ctx.beginPath(); ctx.ellipse(X,TOP-4.6,6,2.2,0,0,7); ctx.fill();   // угли
+  // ── живой огонь ──
+  if(fire>0.02){
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    ctx.strokeStyle='rgba(210,236,255,'+(0.85*arc)+')'; ctx.lineWidth=1.1;
-    ctx.beginPath(); ctx.moveTo(NX,NY);
-    const mx=(NX+seamX)/2+(Math.sin(time*61)*1.6), my=(NY+(B-5))/2;
-    ctx.quadraticCurveTo(mx,my,seamX,B-5); ctx.stroke();
-    const ag=ctx.createRadialGradient(seamX,B-5,0,seamX,B-5,14+16*arc);
-    ag.addColorStop(0,'rgba(244,252,255,'+(0.90*arc)+')');
-    ag.addColorStop(0.25,'rgba(168,208,255,'+(0.44*arc)+')');
-    ag.addColorStop(1,'rgba(110,160,255,0)');
-    ctx.fillStyle=ag; ctx.fillRect(seamX-40,B-45,80,50);
-    const ng=ctx.createRadialGradient(NX,NY,0,NX,NY,9);
-    ng.addColorStop(0,'rgba(226,244,255,'+(0.55*arc)+')');
-    ng.addColorStop(1,'rgba(140,190,255,0)');
-    ctx.fillStyle=ng; ctx.fillRect(NX-10,NY-10,20,20);
-    ctx.fillStyle='rgba(255,186,96,'+(0.55*arc)+')';          // расплавленная ванна
-    ctx.beginPath(); ctx.ellipse(seamX,B-4.6,2.8+1.2*arc,1.2,0,0,7); ctx.fill();
+    const HGT=30*fire;
+    for(let k=0;k<7;k++){                                      // языки пламени
+      const ph=time*(2.1+k*0.37)+k*1.9;
+      const sw=Math.sin(ph)*2.6+Math.sin(ph*1.7)*1.2;
+      const h2=HGT*(0.52+0.48*(0.5+0.5*Math.sin(ph*0.9+k)))*lick;
+      const bx=X+(k-3)*1.7, tipx=bx+sw*(0.5+k*0.08);
+      const wid=3.6-Math.abs(k-3)*0.45;
+      const grd=ctx.createLinearGradient(0,TOP-4,0,TOP-4-h2);
+      grd.addColorStop(0,'rgba(255,246,214,'+(0.44*fire)+')');
+      grd.addColorStop(0.30,'rgba(255,198,88,'+(0.34*fire)+')');
+      grd.addColorStop(0.70,'rgba(255,124,36,'+(0.20*fire)+')');
+      grd.addColorStop(1,'rgba(220,60,20,0)');
+      ctx.fillStyle=grd;
+      ctx.beginPath();
+      ctx.moveTo(bx-wid,TOP-3.4);
+      ctx.quadraticCurveTo(bx-wid*0.8+sw*0.3,TOP-4-h2*0.55,tipx,TOP-4-h2);
+      ctx.quadraticCurveTo(bx+wid*0.8+sw*0.3,TOP-4-h2*0.55,bx+wid,TOP-3.4);
+      ctx.closePath(); ctx.fill();
+    }
+    const cg=ctx.createRadialGradient(X,TOP-8,0,X,TOP-8,16*fire);   // белое ядро у основания
+    cg.addColorStop(0,'rgba(255,252,236,'+(0.42*heat)+')');
+    cg.addColorStop(1,'rgba(255,180,80,0)');
+    ctx.fillStyle=cg; ctx.fillRect(X-20,TOP-26,40,34);
+    for(let k=0;k<7;k++){                                      // угли улетают вверх
+      const t2=(time*0.42+k*0.143)%1;
+      const ex=X+Math.sin(time*1.5+k*2.2)*(2+t2*11)+(k-3)*0.8;
+      ctx.fillStyle='rgba(255,'+Math.round(190-60*t2)+','+Math.round(110-70*t2)+','+(0.55*fire*(1-t2))+')';
+      ctx.beginPath(); ctx.arc(ex,TOP-6-t2*46,0.8+0.5*(1-t2),0,7); ctx.fill();
+    }
     ctx.restore();
-  }
-  if(welding){                                                // дым от шва
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    for(let k=0;k<4;k++){ const t2=((time*0.45+k*0.25)%1);
-      ctx.fillStyle='rgba(190,206,230,'+(0.13*(1-t2))+')';
-      ctx.beginPath(); ctx.arc(seamX+Math.sin(time*1.6+k*2)*(2+t2*7),B-7-t2*24,1.2+t2*3,0,7); ctx.fill(); }
-    ctx.restore();
+    for(let k=0;k<4;k++){                                      // дым выше пламени
+      const t2=((time*0.30+k*0.25)%1);
+      ctx.fillStyle='rgba(58,50,46,'+(0.20*fire*(1-t2))+')';
+      ctx.beginPath();
+      ctx.arc(X+Math.sin(time*0.9+k*2)*(3+t2*12),TOP-30*fire-t2*34,2+t2*5.5,0,7); ctx.fill();
+    }
   }
   ctx.save(); ctx.globalCompositeOperation='lighter';
-  const g3=ctx.createRadialGradient(seamX,B-8,0,seamX,B-8,(welding?26+30*arc:14)+fl2*80);
-  g3.addColorStop(0,'rgba(198,226,255,'+((welding?0.20*arc:0.04)+0.50*fl2)+')');
-  g3.addColorStop(1,'rgba(130,180,255,0)');
-  ctx.fillStyle=g3; ctx.fillRect(X-140,B-160,280,200);
+  const g3=ctx.createRadialGradient(X,TOP-10,0,X,TOP-10,(on?34+40*fire:14)+fl2*80);
+  g3.addColorStop(0,'rgba(255,184,96,'+((on?0.19*heat:0.05)+0.48*fl2)+')');
+  g3.addColorStop(1,'rgba(255,130,50,0)');
+  ctx.fillStyle=g3; ctx.fillRect(X-150,TOP-150,300,300);
   if(fl>0.001){
-    const r1=8+(1-fl)*54;
-    ctx.strokeStyle='rgba(226,244,255,'+(0.45*fl2)+')'; ctx.lineWidth=1.1+2.4*fl;
-    ctx.beginPath(); ctx.ellipse(seamX,B-2,r1,r1*0.26,0,0,7); ctx.stroke();
+    const r0=6+(1-fl)*40;
+    ctx.strokeStyle='rgba(255,238,198,'+(0.50*fl2)+')'; ctx.lineWidth=1.2+2.4*fl;
+    ctx.beginPath(); ctx.arc(X,TOP-6,r0,0,7); ctx.stroke();
+    const r1=10+(1-fl)*54;
+    ctx.strokeStyle='rgba(255,170,80,'+(0.30*fl2)+')'; ctx.lineWidth=1.1;
+    ctx.beginPath(); ctx.ellipse(X,B-1,r1,r1*0.26,0,0,7); ctx.stroke();
   }
   ctx.restore();
-  if(state==='play'&&welding&&Math.random()<0.55+0.4*arc){     // сноп искр из-под дуги
-    const a3=-0.35-Math.random()*2.4;
-    parts.push({x:seamX,y:B-5,vx:Math.cos(a3)*(60+Math.random()*170),
-      vy:Math.sin(a3)*(50+Math.random()*150),life:.35+Math.random()*.45,
-      r:.7+Math.random()*1.0,c:Math.random()<0.45?'#ffd9a0':'#ff9a3c',g:760});
+  if(state==='play'&&on&&age<0.34&&Math.random()<0.75){
+    for(let k=0;k<3;k++){ const a3=-1.57+(Math.random()*2-1)*1.3;
+      parts.push({x:X,y:TOP-6,vx:Math.cos(a3)*(50+Math.random()*120),
+        vy:Math.sin(a3)*(70+Math.random()*150),life:.5+Math.random()*.5,
+        r:.8+Math.random()*1.0,c:'#ffc070',g:380}); }
   }
   ctx.restore();
 }
@@ -2884,9 +2909,9 @@ function drawDarkness(){
   }
   for(const s of L.spiders) hole(s.x-cam.x,s.y-4,26,.4);
   for(const b of bfs) hole(b.x-cam.x,b.y,52,.8);
-  for(const c of L.checks){                              // дуга прорезает тьму жёстко
-    if(c.on){ hole(c.x+17-cam.x,c.y-8,74,.80); hole(c.x-cam.x,c.y-16,44,.6); }
-    else hole(c.x-cam.x,c.y-10,26,.42);
+  for(const c of L.checks){                              // огонь на мачте виден целиком
+    if(c.on){ hole(c.x-cam.x,c.y-58,54,.72); hole(c.x-cam.x,c.y-34,56,.7); hole(c.x-cam.x,c.y-6,40,.56); }
+    else { hole(c.x-cam.x,c.y-52,24,.40); hole(c.x-cam.x,c.y-20,26,.38); }
   }
   if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
   if(L.door){ hole(L.door.box.x-cam.x,L.door.y-40,44,.72);
