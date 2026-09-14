@@ -1275,12 +1275,21 @@ function updatePlats(dt){
     if(p.gone){ p.vy+=1400*dt; p.y+=p.vy*dt; }
   }
 }
+// Кадр может быть длинным (пауза, лаг, свёрнутая вкладка), а dt зажат 1/30.
+// На предельной скорости это 48 px за шаг при толщине плиты 20 — Бобби
+// прошивал платформу насквозь и улетал вниз. Режем шаг на подшаги.
 function physics(dt){
+  const far=Math.abs(hero.vy*dt);
+  const n=Math.min(8,Math.max(1,Math.ceil(far/9)));
+  for(let i=0;i<n;i++) physicsStep(dt/n,i===0);
+}
+function physicsStep(dt,first){
   hero.vy=Math.min(hero.vy+GRAV*dt,1450);
   hero.blocked=false;
   const solids=L.plats.filter(p=>!p.gone);
   if(L.door&&!L.door.open) solids.push({id:-99,x:L.door.x,y:0,w:L.door.w,h:L.door.y,type:'wall',dx:0,dy:0});
-  if(hero.rideId!=null){ const p=solids.find(q=>q.id===hero.rideId); if(p){ hero.x+=p.dx; hero.y+=p.dy; } }
+  // Платформа сдвигает наездника один раз за кадр, а не на каждом подшаге.
+  if(first&&hero.rideId!=null){ const p=solids.find(q=>q.id===hero.rideId); if(p){ hero.x+=p.dx; hero.y+=p.dy; } }
   hero.rideId=null;
 
   hero.x+=hero.vx*dt;
@@ -1291,15 +1300,18 @@ function physics(dt){
     else hero.x=(hero.x<p.x+p.w/2)?p.x-hero.w/2-.01:p.x+p.w+hero.w/2+.01;
     hero.vx=0; hero.blocked=true; b=heroBox(); } }
 
+  const feet0=hero.y+hero.h/2;                 // где были ноги до шага
   hero.y+=hero.vy*dt;
   hero.onGround=false; b=heroBox();
   for(const p of solids){ if(aabb(b,p)){
-    if(hero.vy>0){
+    // Встать на плиту можно только придя сверху. Иначе опускающийся лифт,
+    // накрывая Бобби, мгновенно вздёргивал его к себе на крышу.
+    if(hero.vy>0&&feet0<=p.y+8){
       hero.y=p.y-hero.h/2-.01; hero.onGround=true; hero.rideId=p.id;
       if(hero.airTime>.28){ sfx.land(); hero.squash=1; dust(4); }
       hero.airTime=0; hero.vy=0;
       if(p.type==='crumble') p.touched=true;
-    } else if(hero.vy<0){ hero.y=p.y+p.h+hero.h/2+.01; hero.vy=40; }
+    } else { hero.y=p.y+p.h+hero.h/2+.01; if(hero.vy<0) hero.vy=40; }
     b=heroBox(); } }
   if(hero.rideId!=null){ const rp=solids.find(q=>q.id===hero.rideId);
     if(rp&&rp.type==='belt') hero.x+=rp.dir*88*dt; }
@@ -1397,20 +1409,39 @@ function spiderNear(x,topY,pad){
   const P=pad||62;
   return (L.spiders||[]).some(s=>Math.abs(s.x-x)<P&&Math.abs(s.y-topY)<46);
 }
+// Пила ходит по отрезку, а hazBlocks её не смотрит вовсе — поэтому чекпоинты
+// и записки оказывались прямо под диском. Считаем весь путь пилы, а не точку.
+function sawSweeps(x,topY,pad){
+  const P=pad==null?12:pad;
+  const x0=x-13,x1=x+13,y0=topY-50,y1=topY+2;
+  for(const h of L.haz){
+    if(h.type!=='saw') continue;
+    const R=h.r*1.36+P;                       // зубья выходят за радиус полотна
+    for(let k=0;k<=24;k++){
+      const t=k/24, cx=h.ax+(h.bx-h.ax)*t, cy=h.ay+(h.by-h.ay)*t;
+      const dx=Math.max(x0-cx,0,cx-x1), dy=Math.max(y0-cy,0,cy-y1);
+      if(dx*dx+dy*dy<R*R) return true;
+    }
+  }
+  return false;
+}
 function freeSpot(p,margin){
   const ok=[];
   for(let x=p.x+margin;x<=p.x+p.w-margin;x+=6)
-    if(!hazBlocks(x,p.y)&&!spiderNear(x,p.y)) ok.push(x);
+    if(!hazBlocks(x,p.y)&&!spiderNear(x,p.y)&&!sawSweeps(x,p.y)) ok.push(x);
   if(ok.length) return ok[Math.floor(ok.length/2)];
-  // если из-за паука места нет — берём точку как можно дальше от него
-  const alt=[];
-  for(let x=p.x+margin;x<=p.x+p.w-margin;x+=6) if(!hazBlocks(x,p.y)) alt.push(x);
-  if(!alt.length) return null;
-  let best=alt[0], bd=-1;
-  for(const x of alt){ let d=1e9;
-    for(const s of (L.spiders||[])) d=Math.min(d,Math.abs(s.x-x));
-    if(d>bd){ bd=d; best=x; } }
-  return best;
+  // паука можно потерпеть на расстоянии, пилу над головой — нет
+  const noSaw=[];
+  for(let x=p.x+margin;x<=p.x+p.w-margin;x+=6)
+    if(!hazBlocks(x,p.y)&&!sawSweeps(x,p.y)) noSaw.push(x);
+  if(noSaw.length){
+    let best=noSaw[0], bd=-1;
+    for(const x of noSaw){ let d=1e9;
+      for(const s of (L.spiders||[])) d=Math.min(d,Math.abs(s.x-x));
+      if(d>bd){ bd=d; best=x; } }
+    return best;
+  }
+  return null;                                 // площадка под пилой — ищем другую
 }
 const DOOR_LEVELS={25:1,34:1,46:1,57:1,66:1,74:1,83:1,91:1,98:1};
 function placeDoor(){
@@ -1711,7 +1742,7 @@ function drawPlatform(p){
       ctx.lineTo(bx3,y+p.h*0.78); ctx.stroke();
     }
     // сыплется крошка, когда уже наступили
-    if(stress&&Math.random()<0.5){
+    if(state==='play'&&stress&&Math.random()<0.5){
       parts.push({x:x+6+Math.random()*(p.w-12),y:y+p.h,
         vx:(Math.random()*2-1)*26,vy:20+Math.random()*50,
         life:.35+Math.random()*.3,r:.9+Math.random()*1.5,c:'#6b5340',g:640});
@@ -1848,7 +1879,7 @@ function drawSaw(h){
   if(h.flash>0){ ctx.fillStyle='rgba(255,60,50,'+(h.flash*.9)+')';
     ctx.beginPath(); ctx.arc(0,0,h.r*1.4,0,7); ctx.fill(); }
   ctx.restore();
-  if(Math.random()<0.20+0.5*Math.min(1,Math.abs(vel))){      // искры срываются с зубьев
+  if(state==='play'&&Math.random()<0.20+0.5*Math.min(1,Math.abs(vel))){   // искры срываются с зубьев
     const a=Math.random()*6.283;
     parts.push({x:c.x+Math.cos(a)*h.r*1.2,y:c.y+Math.sin(a)*h.r*1.2,
       vx:Math.cos(a)*(40+Math.random()*90),vy:Math.sin(a)*(40+Math.random()*90)-20,
@@ -2231,63 +2262,88 @@ function drawExit(){
   ctx.restore();
 }
 function drawCheck(c){
-  // Чекпоинт — фигура человека в цеховом комбинезоне. Спит, опустив руки;
-  // Бобби подходит — раскрывает руки навстречу. Если Бобби гибнет, фигура
-  // поднимает руку к небу, и в неё бьёт молния.
+  // Фигура человека в цеховом комбинезоне. Спит с опущенными руками; Бобби
+  // подходит — распрямляется и раскидывает руки; Бобби гибнет — вскидывает
+  // руку, и в ладонь бьёт молния. В разряде тело видно белым силуэтом.
   const on=c.on, dtc=Math.min(0.05,DT||1/60);
   const age=on?(time-(c.t0||0)):0;
   const ss2=t=>t*t*(3-2*t);
   const X=c.x, B=c.y;
-  const open=on?ss2(clamp((age-0.18)/0.55,0,1)):0;           // руки раскрываются
-  const fl=on?(clamp((age-0.14)/0.05,0,1)*clamp(1-(age-0.20)/0.8,0,1)):0;
+  // Все позы — на пружинах, а не на фиксированных кривых: у движения
+  // появляются вес, доворот и осадка, и оно перестаёт щёлкать по таймеру.
+  const spring=(x,v,tgt,k,d)=>{ v+=(k*(tgt-x)-d*v)*dtc; x+=v*dtc; return [x,v]; };
+  const bt=isFinite(c.bolt)?(time-c.bolt):1e9;
+  if(!isFinite(c.ao)) c.ao=0; if(!isFinite(c.aov)) c.aov=0;
+  if(!isFinite(c.ar)) c.ar=0; if(!isFinite(c.arv)) c.arv=0;
+  const openT=(on&&age>0.15)?1:0;                       // раскрытие рук
+  [c.ao,c.aov]=spring(c.ao,c.aov,openT,118,12.6);
+  const raiseT=bt<0.08?-0.22:(bt<1.9?1:0);              // замах вниз, потом бросок вверх
+  [c.ar,c.arv]=spring(c.ar,c.arv,raiseT,150,14.2);
+  const open=clamp(c.ao,-0.3,1.3), raise=clamp(c.ar,-0.3,1.25);
+  const duck=on?clamp(age/0.15,0,1)*(1-clamp((age-0.15)/0.22,0,1)):0;   // приседание перед раскрытием
+  const fl=on?(clamp((age-0.12)/0.05,0,1)*clamp(1-(age-0.18)/0.8,0,1)):0;
   const fl2=fl*fl;
-  const bt=isFinite(c.bolt)?(time-c.bolt):1e9;               // сколько прошло с молнии
-  const raise=ss2(clamp(bt/0.26,0,1))*(1-ss2(clamp((bt-1.5)/0.5,0,1)));   // рука вверх
-  const strike=bt>=0.26&&bt<0.34?1:0;                        // сам разряд
-  const after=clamp(1-(bt-0.26)/0.7,0,1)*(bt>=0.26?1:0);     // послесвечение
-  if(c.boltSnd===0&&bt>=0.24){ c.boltSnd=1; playFile('sfx/bell',1,.85); }
-  const lt=litAt(X,B-30,320), mb=Math.round(40+lt.k*56);
-  const SUIT=k=>'rgb('+Math.round(52*k+lt.k*24)+','+Math.round(60*k+lt.k*26)+','+Math.round(74*k+lt.k*30)+')';
-  const SKIN=k=>'rgb('+Math.round((150+lt.k*74)*k)+','+Math.round((124+lt.k*66)*k)+','+Math.round((104+lt.k*58)*k)+')';
+  const strike=bt>=0.24&&bt<0.33?1:0;
+  const after=clamp(1-(bt-0.24)/0.75,0,1)*(bt>=0.24?1:0);
+  const jolt=bt>=0.24&&bt<0.62?Math.sin((bt-0.24)*118)*3.0*Math.pow(1-(bt-0.24)/0.38,2):0;
+  // корпус оседает и распрямляется от того, как быстро идут руки
+  const squash=clamp(-c.aov*0.016-Math.abs(c.arv)*0.010,-0.14,0.14);
+  if(c.boltSnd===0&&bt>=0.22){ c.boltSnd=1; playFile('sfx/bell',1,.85); }
+  // голова провожает Бобби, пока он рядом, иначе смотрит на свет игрока
+  if(!isFinite(c.ha)) c.ha=0; if(!isFinite(c.hv)) c.hv=0;
+  const near=Math.abs(hero.x-X)<150&&hero.dead<=0;
+  const look=near?hero.x:mouse.x;
+  const tHa=clamp((look-X)/120,-1,1)*(on?1:0.35);
+  c.hv+=((tHa-c.ha)*34-c.hv*7.5)*dtc; c.ha+=c.hv*dtc;
+  const ha=clamp(c.ha,-1.2,1.2)*(1-raise*0.5);
+  const lt=litAt(X,B-30,320);
+  const white=clamp(strike*0.92+after*0.34,0,1);              // белизна силуэта в разряде
+  const wmix=(r,g,b)=>'rgb('+Math.round(r+(255-r)*white)+','+Math.round(g+(255-g)*white)+','+Math.round(b+(255-b)*white)+')';
+  const SUIT=k=>wmix(52*k+lt.k*24,60*k+lt.k*26,74*k+lt.k*30);
+  const SKIN=k=>wmix((150+lt.k*74)*k,(124+lt.k*66)*k,(104+lt.k*58)*k);
+  const HAIR=k=>wmix((88+lt.k*54)*k,(68+lt.k*42)*k,(46+lt.k*30)*k);
   const col=[150,255,196];
   const glow=on?((0.30+0.70*open)*(0.88+0.12*Math.sin(time*1.7))+0.9*after):0;
-  const breath=Math.sin(time*(on?1.7:0.9))*(on?0.9:0.45);    // дышит
-  const HIP=B-19, SH=B-33, HEAD=B-41;                        // таз, плечи, голова
+  const breath=Math.sin(time*(on?1.7:0.85))*(on?0.85:0.4);
+  const shift=Math.sin(time*0.42+X*0.07)*0.9*(on?1:0.5);      // переминается с ноги на ногу
+  const HIP=B-19, SH=B-33-duck*1.8+breath*0.25+squash*9;
+  // Голова висела над плечами с зазором в 5.6 px — сажаем подбородок на линию плеч.
+  const HEAD=SH-4.4-duck*0.8+squash*6;
   ctx.save();
-  if(on){                                                    // свет на полу под ним
+  ctx.translate(jolt,0);
+  if(on){
     ctx.save(); ctx.globalCompositeOperation='lighter';
-    const pg=ctx.createRadialGradient(X,B-1,0,X,B-1,34*(0.4+0.6*open)+40*after);
+    const pr=34*(0.4+0.6*open)+46*after;
+    const pg=ctx.createRadialGradient(X,B-1,0,X,B-1,pr);
     pg.addColorStop(0,'rgba(150,255,190,'+(0.11*glow)+')');
     pg.addColorStop(1,'rgba(150,255,190,0)');
-    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(X,B-1,34*(0.4+0.6*open)+40*after,10,0,0,7); ctx.fill();
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(X,B-1,pr,10,0,0,7); ctx.fill();
     ctx.restore();
   }
   ctx.fillStyle='rgba(0,0,0,.38)';
   ctx.beginPath(); ctx.ellipse(X,B-1,9,2.6,0,0,7); ctx.fill();
   // ── ноги ──
   ctx.fillStyle=SUIT(1.0);
-  rr(ctx,X-5.4,HIP-1,4.6,20,2); ctx.fill();
-  rr(ctx,X+0.8,HIP-1,4.6,20,2); ctx.fill();
-  ctx.fillStyle=SUIT(0.72); ctx.fillRect(X-5.4,HIP+8,4.6,1.6); ctx.fillRect(X+0.8,HIP+8,4.6,1.6);
-  ctx.fillStyle='rgb('+Math.round(30+lt.k*20)+','+Math.round(32+lt.k*20)+','+Math.round(38+lt.k*22)+')';
-  rr(ctx,X-6,B-4,5.6,4,1.4); ctx.fill(); rr(ctx,X+0.4,B-4,5.6,4,1.4); ctx.fill();   // ботинки
-  // ── корпус в комбинезоне ──
+  rr(ctx,X-5.4+shift*0.3,HIP-1,4.6,20,2); ctx.fill();
+  rr(ctx,X+0.8+shift*0.3,HIP-1,4.6,20,2); ctx.fill();
+  ctx.fillStyle=SUIT(0.72);
+  ctx.fillRect(X-5.4+shift*0.3,HIP+8,4.6,1.6); ctx.fillRect(X+0.8+shift*0.3,HIP+8,4.6,1.6);
+  ctx.fillStyle=wmix(30+lt.k*20,32+lt.k*20,38+lt.k*22);
+  rr(ctx,X-6,B-4,5.6,4,1.4); ctx.fill(); rr(ctx,X+0.4,B-4,5.6,4,1.4); ctx.fill();
+  // ── корпус ──
   const tg=ctx.createLinearGradient(X-7,0,X+7,0);
   tg.addColorStop(0,SUIT(0.74)); tg.addColorStop(0.4,SUIT(1.18)); tg.addColorStop(1,SUIT(0.82));
   ctx.fillStyle=tg;
   ctx.beginPath();
-  ctx.moveTo(X-6.6,SH+1); ctx.lineTo(X+6.6,SH+1);
+  ctx.moveTo(X-6.6+ha*0.6,SH+1); ctx.lineTo(X+6.6+ha*0.6,SH+1);
   ctx.lineTo(X+5.4,HIP+1); ctx.lineTo(X-5.4,HIP+1); ctx.closePath(); ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(X-6.6,SH+1,13.2,1.1);
-  ctx.fillStyle='rgba(0,0,0,.34)'; ctx.fillRect(X-5.6,HIP-4,11,2.6);   // пояс
+  ctx.fillStyle='rgba(0,0,0,.34)'; ctx.fillRect(X-5.6,HIP-4,11,2.6);
   ctx.fillStyle='rgba(214,180,84,.5)'; ctx.fillRect(X-1.4,HIP-4,2.8,2.6);
-  ctx.fillStyle='rgba(0,0,0,.26)';                            // светоотражающая полоса
-  ctx.fillRect(X-6.2,SH+8,12.4,1.8);
-  ctx.fillStyle='rgba(226,240,255,'+(0.20+0.34*lt.k+0.4*glow*0.3)+')';
-  ctx.fillRect(X-6.2,SH+8,12.4,1.2);
-  ctx.fillStyle='rgba(0,0,0,.30)'; rr(ctx,X+1.4,SH+3.4,3.6,3,0.8); ctx.fill();   // нагрудный карман
-  // фонарик на груди — он и есть огонь чекпоинта
-  const lampY=SH+4.6;
+  ctx.fillStyle='rgba(0,0,0,.26)'; ctx.fillRect(X-6.2,SH+8,12.4,1.8);
+  ctx.fillStyle='rgba(226,240,255,'+(0.20+0.34*lt.k)+')'; ctx.fillRect(X-6.2,SH+8,12.4,1.2);
+  ctx.fillStyle='rgba(0,0,0,.30)'; rr(ctx,X+1.4,SH+3.4,3.6,3,0.8); ctx.fill();
+  const lampY=SH+4.6;                                          // фонарь на груди
   ctx.fillStyle='rgba(16,20,26,.9)';
   ctx.beginPath(); ctx.arc(X-3.2,lampY,2.6,0,7); ctx.fill();
   ctx.fillStyle=on?('rgba('+col[0]+','+col[1]+','+col[2]+','+(0.5+0.5*glow)+')')
@@ -2298,91 +2354,118 @@ function drawCheck(c){
     cg.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.15*glow)+')');
     cg.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
     ctx.fillStyle=cg; ctx.fillRect(X-60,lampY-60,120,120); ctx.restore(); }
-  // ── руки: вниз -> в стороны -> одна вверх ──
-  // Угол руки: +1.36 рад — вдоль тела вниз, -0.30 — раскинута в сторону,
-  // -pi/2 — поднята вертикально вверх. Предплечье чуть довёрнуто, чтобы был локоть.
+  // ── руки ──
   const arm=(sd,rz)=>{
-    const sx=X+sd*6.0, sy=SH+2.4;
-    let a=1.36+(-0.30-1.36)*open;
+    const sx=X+sd*6.0+ha*0.5, sy=SH+2.4;
+    let a=1.36+(-0.30-1.36)*open+duck*0.10;
     a=a+(-Math.PI/2-a)*rz;
     const bend=0.20*(1-rz)*(0.35+0.65*open);
     const ex=sx+Math.cos(a)*sd*9.6, ey=sy+Math.sin(a)*9.6;
     const a2=a-bend;
     const hx=ex+Math.cos(a2)*sd*8.6, hy=ey+Math.sin(a2)*8.6;
     ctx.strokeStyle=SUIT(1.06); ctx.lineWidth=4.2; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();   // плечо в рукаве
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
     ctx.strokeStyle=SKIN(1.0); ctx.lineWidth=3.3;
-    ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(hx,hy); ctx.stroke();   // голое предплечье
+    ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(hx,hy); ctx.stroke();
     ctx.fillStyle='rgba(0,0,0,.26)';
-    ctx.beginPath(); ctx.arc(ex,ey,1.9,0,7); ctx.fill();                   // манжета
+    ctx.beginPath(); ctx.arc(ex,ey,1.9,0,7); ctx.fill();
     ctx.fillStyle=SKIN(1.08);
-    ctx.beginPath(); ctx.arc(hx,hy,2.1,0,7); ctx.fill();                   // кисть
+    ctx.beginPath(); ctx.arc(hx,hy,2.1,0,7); ctx.fill();
     return {x:hx,y:hy};
   };
   const handL=arm(-1,0);
   const handR=arm( 1,raise);
   // ── голова ──
-  ctx.save(); ctx.translate(X,HEAD+2+breath*0.3);
-  ctx.rotate((raise>0.1?-0.16*raise:0)+Math.sin(time*0.7)*0.02);
-  ctx.fillStyle=SKIN(0.9); rr(ctx,-2,-1,4,4,1); ctx.fill();    // шея
+  ctx.save(); ctx.translate(X+ha*1.6,HEAD+2);
+  ctx.rotate(ha*0.12-0.18*raise+Math.sin(time*0.7)*0.02);
+  const hsq=1-0.14*Math.abs(ha);
+  ctx.scale(hsq,1);
+  ctx.fillStyle=SKIN(0.88); rr(ctx,-2.1,-1.4,4.2,5.2,1); ctx.fill();      // шея закрывает стык
+  ctx.fillStyle='rgba(0,0,0,.26)'; ctx.fillRect(-2.1,-1.4,4.2,1.3);      // тень под подбородком
   ctx.fillStyle=SKIN(1.0);
-  rr(ctx,-4.6,-8.6,9.2,10,3); ctx.fill();                     // лицо
-  ctx.fillStyle='rgb('+Math.round(84+lt.k*52)+','+Math.round(64+lt.k*40)+','+Math.round(44+lt.k*28)+')';
-  ctx.beginPath();                                            // волосы шапкой с чёлкой
-  ctx.moveTo(-5,-4.6);
-  ctx.quadraticCurveTo(-5.6,-10.6,0,-10.6);
-  ctx.quadraticCurveTo(5.6,-10.6,5,-4.6);
+  rr(ctx,-4.6,-8.6,9.2,10,3); ctx.fill();
+  ctx.fillStyle=HAIR(1.0);                                             // шапка волос
+  ctx.beginPath();
+  ctx.moveTo(-5,-4.4);
+  ctx.quadraticCurveTo(-5.6,-10.8,0,-10.8);
+  ctx.quadraticCurveTo(5.6,-10.8,5,-4.4);
   ctx.lineTo(3.4,-5.6); ctx.quadraticCurveTo(1.4,-7.6,-1,-6.2);
   ctx.quadraticCurveTo(-3,-5.2,-3.6,-6.4); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fillRect(-4.6,-5.4,9.2,1);
-  const eo=(on?1:0.45);                                       // глаза
-  ctx.fillStyle='rgba(24,26,32,'+(0.5+0.4*eo)+')';
-  ctx.beginPath(); ctx.arc(-2,-3.4,0.95,0,7); ctx.fill();
-  ctx.beginPath(); ctx.arc(2,-3.4,0.95,0,7); ctx.fill();
+  const lift2=raise*2.0+strike*1.8+Math.max(0,breath)*0.25+Math.abs(c.arv)*0.05;
+  const hlag=clamp(-c.hv*0.55,-2.2,2.2);                               // пряди отстают от поворота
+  ctx.strokeStyle=HAIR(1.12); ctx.lineWidth=1.2; ctx.lineCap='round';
+  for(let k=0;k<3;k++){ const bx=-3.4+k*3.2;
+    ctx.beginPath(); ctx.moveTo(bx,-9.4);
+    ctx.quadraticCurveTo(bx+0.6+hlag*0.5,-11.4-lift2,bx+1.6-ha*0.8+hlag,-12.4-lift2*1.5); ctx.stroke(); }
+  ctx.fillStyle='rgba(0,0,0,.20)'; ctx.fillRect(-4.6,-5.2,9.2,0.9);
+  const eo=(on?1:0.45);
+  ctx.fillStyle=wmix(24,26,32);
+  ctx.globalAlpha=0.5+0.4*eo;
+  const eblink=(Math.sin(time*0.9+X)>0.985)?0.25:1;                    // моргает
+  ctx.beginPath(); ctx.ellipse(-2+ha*0.7,-3.4,0.95,0.95*eblink,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(2+ha*0.7,-3.4,0.95,0.95*eblink,0,0,7); ctx.fill();
+  ctx.globalAlpha=1;
   if(on){ ctx.fillStyle='rgba(226,255,240,'+(0.40*glow)+')';
-    ctx.beginPath(); ctx.arc(-2.3,-3.7,0.4,0,7); ctx.fill();
-    ctx.beginPath(); ctx.arc(1.7,-3.7,0.4,0,7); ctx.fill(); }
-  ctx.strokeStyle='rgba(40,30,26,'+(0.30+0.30*open)+')'; ctx.lineWidth=.8; ctx.lineCap='round';
-  ctx.beginPath();                                            // улыбка появляется, когда раскрылся
-  ctx.moveTo(-1.6,-0.9); ctx.quadraticCurveTo(0,-0.9+open*0.9,1.6,-0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-2.3+ha*0.7,-3.7,0.4,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(1.7+ha*0.7,-3.7,0.4,0,7); ctx.fill(); }
+  ctx.strokeStyle=wmix(40,30,26); ctx.globalAlpha=0.30+0.30*open; ctx.lineWidth=.8;
+  ctx.beginPath();
+  ctx.moveTo(-1.6+ha*0.6,-0.9);
+  ctx.quadraticCurveTo(ha*0.6,-0.9+open*0.9,1.6+ha*0.6,-0.9); ctx.stroke();
+  ctx.globalAlpha=1;
   ctx.restore();
-  // ── молния в поднятую руку ──
-  if(bt<1.9&&raise>0.5){
+  // ── молния ──
+  if(bt<2.6&&raise>0.45){
     const hx=handR.x, hy=handR.y;
     if(strike||after>0.02){
       ctx.save(); ctx.globalCompositeOperation='lighter';
       const seed=Math.floor(bt*30);
-      for(let pass=0;pass<3;pass++){
-        const rnd=mulberry32(4242+seed*7+pass*13);
-        ctx.strokeStyle=pass===0?'rgba(255,255,255,'+(0.85*(strike?1:after))+')'
-                               :'rgba(176,226,255,'+(0.40*(strike?1:after))+')';
-        ctx.lineWidth=pass===0?2.2:(4.5-pass);
-        ctx.beginPath();
-        let px=hx+(rnd()*2-1)*6, py=hy-140;
-        ctx.moveTo(px,py);
-        const steps=9;
-        for(let k=1;k<=steps;k++){
-          const t2=k/steps;
-          px=hx+(1-t2)*((rnd()*2-1)*16)+ (px-hx)*0.12;
-          py=hy-140*(1-t2);
-          ctx.lineTo(px,py);
-        }
-        ctx.lineTo(hx,hy); ctx.stroke();
+      // Один и тот же излом рисуем трижды: широкий синий ореол, узкий
+      // голубой и тонкое белое ядро. Излом резкий, без сглаживания —
+      // размазанный пучок из трёх разных линий читался как клякса.
+      const rnd=mulberry32(4242+seed*11);
+      const N=9, pts=[];
+      for(let k=0;k<=N;k++){
+        const t2=k/N;
+        const amp=14*(1-t2)*(1-t2)+2;
+        pts.push({x:hx+(rnd()*2-1)*amp*(k===N?0:1), y:hy-152*(1-t2)});
+      }
+      const draw=(w,st)=>{ ctx.strokeStyle=st; ctx.lineWidth=w; ctx.lineJoin='miter'; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+        for(let k=1;k<=N;k++) ctx.lineTo(pts[k].x,pts[k].y);
+        ctx.stroke(); };
+      const A=strike?1:after;
+      draw(7.0,'rgba(96,164,255,'+(0.16*A)+')');
+      draw(3.2,'rgba(170,214,255,'+(0.42*A)+')');
+      draw(1.3,'rgba(255,255,255,'+(0.95*A)+')');
+      for(const br of [2,5]){                                   // две короткие ветки
+        const a4=pts[br], dir=rnd()<0.5?-1:1;
+        ctx.strokeStyle='rgba(196,226,255,'+(0.40*A)+')'; ctx.lineWidth=1.1;
+        ctx.beginPath(); ctx.moveTo(a4.x,a4.y);
+        ctx.lineTo(a4.x+dir*9,a4.y+12); ctx.lineTo(a4.x+dir*16,a4.y+9); ctx.stroke();
       }
       const bg2=ctx.createRadialGradient(hx,hy,0,hx,hy,26+60*(strike?1:after));
       bg2.addColorStop(0,'rgba(236,250,255,'+(0.42*(strike?1:after))+')');
       bg2.addColorStop(1,'rgba(150,210,255,0)');
-      ctx.fillStyle=bg2; ctx.fillRect(hx-110,hy-170,220,220);
+      ctx.fillStyle=bg2; ctx.fillRect(hx-110,hy-180,220,230);
       ctx.restore();
     }
-    if(strike&&Math.random()<0.9){                            // искры из ладони
+    if(state==='play'&&strike&&Math.random()<0.9){
       for(let k=0;k<4;k++){ const a3=Math.random()*6.283;
         parts.push({x:hx,y:hy,vx:Math.cos(a3)*(70+Math.random()*160),
           vy:Math.sin(a3)*(70+Math.random()*160),life:.4+Math.random()*.4,
           r:.8+Math.random()*1.2,c:'#dff0ff',g:520}); }
     }
+    if(bt>0.33&&bt<1.9){                                        // с ладони идёт дымок
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      for(let k=0;k<4;k++){ const t3=((bt*0.7+k*0.25)%1);
+        ctx.fillStyle='rgba(216,232,255,'+(0.20*(1-t3)*clamp((1.9-bt)/0.6,0,1))+')';
+        ctx.beginPath();
+        ctx.arc(hx+Math.sin(bt*2.4+k*2)*(1.6+t3*5),hy-4-t3*20,1+t3*2.4,0,7); ctx.fill(); }
+      ctx.restore();
+    }
   }
-  ctx.save(); ctx.globalCompositeOperation='lighter';          // общий ореол
+  ctx.save(); ctx.globalCompositeOperation='lighter';
   const g3=ctx.createRadialGradient(X,B-24,0,X,B-24,(on?30+22*open:14)+fl2*50+90*after);
   g3.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+((on?0.085*glow:0.04)+0.40*fl2+0.16*after)+')');
   g3.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
@@ -2391,6 +2474,10 @@ function drawCheck(c){
     const r1=8+(1-fl)*46;
     ctx.strokeStyle='rgba(200,255,224,'+(0.40*fl2)+')'; ctx.lineWidth=1.1+2.2*fl;
     ctx.beginPath(); ctx.ellipse(X,B-1,r1,r1*0.26,0,0,7); ctx.stroke();
+  }
+  if(strike){                                                   // от удара по полу идёт волна
+    ctx.strokeStyle='rgba(226,244,255,.5)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(X,B-1,26,7,0,0,7); ctx.stroke();
   }
   ctx.restore();
   ctx.restore();
