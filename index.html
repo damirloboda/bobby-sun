@@ -2282,12 +2282,6 @@ function drawCheck(c){
   // Пламя дышит тремя несинхронными частотами — ровное горение выдаёт подделку.
   const lick=0.74+0.16*Math.sin(time*8.3)+0.07*Math.sin(time*17.7)+0.05*Math.sin(time*3.1);
   const heat=fire*lick;
-  // Порыв: редко, но сильно кладёт пламя набок и хлопает полотнищем.
-  const gRaw=Math.sin(time*0.41+X*0.03)*Math.sin(time*0.27+X*0.017);
-  const gust=Math.max(0,gRaw-0.35)/0.65*(gRaw>0?1:-1);
-  const gdir=Math.sign(Math.sin(time*0.19+X*0.011))||1;
-  const lean=gust*gdir;
-  c.lick=on?lick:0; c.fire=fire;                             // темнота дышит вместе с огнём
   const MAST=B-6, TOP=B-54, BAR=B-40, BW=23;
   ctx.save();
   if(on){                                                     // тёплая лужа под мачтой
@@ -2316,11 +2310,6 @@ function drawCheck(c){
     ctx.lineTo(X-6,MAST-1-bh); ctx.lineTo(X-13,MAST-1-bh*0.5); ctx.closePath(); ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=.7;
     ctx.beginPath(); ctx.moveTo(X-12,MAST-1-bh*0.28); ctx.lineTo(X-7,MAST-1-bh*0.62); ctx.stroke(); }
-  ctx.strokeStyle='rgba(18,20,26,.8)'; ctx.lineWidth=1;       // растяжки к полу
-  for(const sd of [-1,1]){
-    ctx.beginPath(); ctx.moveTo(X+sd*1.6,TOP+6);
-    ctx.lineTo(X+sd*13,MAST-1); ctx.stroke();
-    ctx.fillStyle=M(0.9); ctx.fillRect(X+sd*13-1.4,MAST-3,2.8,3); }
   const mg=ctx.createLinearGradient(X-2.4,0,X+2.4,0);         // мачта
   mg.addColorStop(0,M(0.66)); mg.addColorStop(.38,M(1.22)); mg.addColorStop(1,M(0.74));
   ctx.fillStyle=mg; ctx.fillRect(X-2.4,TOP,4.8,MAST-TOP);
@@ -2331,10 +2320,6 @@ function drawCheck(c){
     hg.addColorStop(1,'rgba(255,90,30,0)');
     ctx.fillStyle=hg; ctx.fillRect(X-2.4,TOP,4.8,26); ctx.restore();
   }
-  ctx.fillStyle='rgba(0,0,0,.34)';                            // скобы-ступени по мачте
-  for(let k=0;k<5;k++) ctx.fillRect(X-4.2,MAST-6-k*8,8.4,1.5);
-  ctx.fillStyle='rgba(255,255,255,.08)';
-  for(let k=0;k<5;k++) ctx.fillRect(X-4.2,MAST-6-k*8,8.4,.6);
   ctx.fillStyle=M(0.85); ctx.fillRect(X-1.5,BAR-1.6,BW,3.2);  // рея
   ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(X-1.5,BAR-1.6,BW,.9);
   ctx.fillStyle=M(1.1); ctx.beginPath(); ctx.arc(X+BW-1.5,BAR,2,0,7); ctx.fill();
@@ -2344,9 +2329,7 @@ function drawCheck(c){
       const top=[], bot=[];
       for(let k=0;k<=N;k++){
         const t2=k/N, px=X+2+LEN*t2;
-        const w=Math.sin(time*3.4-t2*4.2)*3.0*t2*unr + Math.sin(time*1.7-t2*2.1)*1.4*t2
-                - fire*2.6*t2*(0.5+0.5*lick)            // горячий воздух подкидывает полотно
-                + lean*4.5*t2;                          // и порыв кладёт его набок
+        const w=Math.sin(time*3.4-t2*4.2)*3.0*t2*unr + Math.sin(time*1.7-t2*2.1)*1.4*t2;
         top.push({x:px,y:BAR+1.4+w});
         bot.push({x:px,y:BAR+1.4+H0+w*1.25+Math.sin(time*2.6-t2*3.4)*1.1*t2});
       }
@@ -2394,14 +2377,7 @@ function drawCheck(c){
   for(let k=-2;k<=2;k++) ctx.fillRect(X+k*3-0.5,TOP-6,1,8);   // прутья корзины
   ctx.fillStyle=on?('rgba(255,'+Math.round(120+110*blow)+','+Math.round(40+70*blow)+','+(0.55+0.45*heat)+')')
                  :'rgba(96,58,42,.55)';
-  ctx.beginPath(); ctx.ellipse(X,TOP-4.6,6,2.2,0,0,7); ctx.fill();   // постель углей
-  for(let k=0;k<5;k++){                                       // каждый уголь дышит сам
-    const cpu=0.45+0.55*Math.abs(Math.sin(time*(1.7+k*0.43)+k*2.1));
-    const cx2=X-4.4+k*2.2, cy2=TOP-4.6+((k%2)?0.7:-0.5);
-    ctx.fillStyle=on?('rgba(255,'+Math.round(150+90*cpu)+','+Math.round(60+80*cpu)+','+(0.35+0.5*cpu*heat)+')')
-                   :('rgba(150,64,36,'+(0.16+0.16*cpu)+')');
-    ctx.beginPath(); ctx.ellipse(cx2,cy2,1.5,0.9,0,0,7); ctx.fill();
-  }
+  ctx.beginPath(); ctx.ellipse(X,TOP-4.6,6,2.2,0,0,7); ctx.fill();   // угли
   // ── живой огонь ──
   if(fire>0.02){
     ctx.save(); ctx.globalCompositeOperation='lighter';
@@ -2409,8 +2385,8 @@ function drawCheck(c){
     for(let k=0;k<7;k++){                                      // языки пламени
       const ph=time*(2.1+k*0.37)+k*1.9;
       const sw=Math.sin(ph)*2.6+Math.sin(ph*1.7)*1.2;
-      const h2=HGT*(0.52+0.48*(0.5+0.5*Math.sin(ph*0.9+k)))*lick*(1-0.30*Math.abs(lean));
-      const bx=X+(k-3)*1.7, tipx=bx+sw*(0.5+k*0.08)+lean*11*(0.4+0.6*(k/6));
+      const h2=HGT*(0.52+0.48*(0.5+0.5*Math.sin(ph*0.9+k)))*lick;
+      const bx=X+(k-3)*1.7, tipx=bx+sw*(0.5+k*0.08);
       const wid=3.6-Math.abs(k-3)*0.45;
       const grd=ctx.createLinearGradient(0,TOP-4,0,TOP-4-h2);
       grd.addColorStop(0,'rgba(255,246,214,'+(0.44*fire)+')');
@@ -2430,7 +2406,7 @@ function drawCheck(c){
     ctx.fillStyle=cg; ctx.fillRect(X-20,TOP-26,40,34);
     for(let k=0;k<7;k++){                                      // угли улетают вверх
       const t2=(time*0.42+k*0.143)%1;
-      const ex=X+Math.sin(time*1.5+k*2.2)*(2+t2*11)+(k-3)*0.8+lean*26*t2;
+      const ex=X+Math.sin(time*1.5+k*2.2)*(2+t2*11)+(k-3)*0.8;
       ctx.fillStyle='rgba(255,'+Math.round(190-60*t2)+','+Math.round(110-70*t2)+','+(0.55*fire*(1-t2))+')';
       ctx.beginPath(); ctx.arc(ex,TOP-6-t2*46,0.8+0.5*(1-t2),0,7); ctx.fill();
     }
@@ -2456,12 +2432,6 @@ function drawCheck(c){
     ctx.beginPath(); ctx.ellipse(X,B-1,r1,r1*0.26,0,0,7); ctx.stroke();
   }
   ctx.restore();
-  if(state==='play'&&fire>0.5&&Math.random()<0.10+0.35*Math.abs(lean)){   // сносит искры порывом
-    const a4=-1.57+lean*1.1+(Math.random()*2-1)*0.5;
-    parts.push({x:X+(Math.random()*2-1)*4,y:TOP-8,
-      vx:Math.cos(a4)*(30+Math.random()*90)+lean*70,vy:Math.sin(a4)*(40+Math.random()*80),
-      life:.6+Math.random()*.6,r:.7+Math.random()*.9,c:'#ffb968',g:-30});
-  }
   if(state==='play'&&on&&age<0.34&&Math.random()<0.75){
     for(let k=0;k<3;k++){ const a3=-1.57+(Math.random()*2-1)*1.3;
       parts.push({x:X,y:TOP-6,vx:Math.cos(a3)*(50+Math.random()*120),
@@ -2939,10 +2909,8 @@ function drawDarkness(){
   }
   for(const s of L.spiders) hole(s.x-cam.x,s.y-4,26,.4);
   for(const b of bfs) hole(b.x-cam.x,b.y,52,.8);
-  for(const c of L.checks){                              // темнота отступает в такт пламени
-    if(c.on){ const k=0.82+0.30*(c.lick||0.8), f=c.fire||1;
-      hole(c.x-cam.x,c.y-58,54*k*f,.72); hole(c.x-cam.x,c.y-34,56*k*f,.7);
-      hole(c.x-cam.x,c.y-6,40*k*f,.56); }
+  for(const c of L.checks){                              // огонь на мачте виден целиком
+    if(c.on){ hole(c.x-cam.x,c.y-58,54,.72); hole(c.x-cam.x,c.y-34,56,.7); hole(c.x-cam.x,c.y-6,40,.56); }
     else { hole(c.x-cam.x,c.y-52,24,.40); hole(c.x-cam.x,c.y-20,26,.38); }
   }
   if(L.note) hole(L.note.x-cam.x,L.note.y-16,34,.55);
